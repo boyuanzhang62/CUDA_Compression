@@ -79,9 +79,9 @@ void *gpu_consumer (void *q)
 	queue *fifo;
 	int i, d;
 	int success=0;
+	int interval = 1;
 	fifo = (queue *)q;
 	int comp_length=0;
-	
 	fifo->in_d = initGPUmem((int)blocksize);
 	fifo->out_d = initGPUmem((int)blocksize*2);
 	
@@ -106,10 +106,16 @@ void *gpu_consumer (void *q)
 		gettimeofday(&t2_start,0);	
 		
 		success=compression_kernel_wrapper(fifo->buf[fifo->headGC], blocksize, fifo->bufout[fifo->headGC], 
-										0, 0, 128, 0,fifo->headGC, fifo->in_d, fifo->out_d);
+										0, 0, 128, 0,fifo->headGC, fifo->in_d, fifo->out_d, interval);
 		if(!success){
 			printf("Compression failed. Success %d\n",success);
 		}	
+		for(int byind = 0; byind < blocksize; byind ++){
+			if(byind % interval != 0){
+				fifo->bufout[fifo->headGC][byind * 2] = 1;
+				fifo->bufout[fifo->headGC][byind * 2 + 1] = fifo->buf[fifo->headGC][byind];
+			}
+		}
 		
 		gettimeofday(&t2_end,0);
 		time_d = (t2_end.tv_sec-t2_start.tv_sec) + (t2_end.tv_usec - t2_start.tv_usec)/1000000.0;

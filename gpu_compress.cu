@@ -112,6 +112,9 @@ __device__ encoded_string_t FindMatch(int windowHead, int uncodedHead, unsigned 
 	
 	matchData.length = 1; // make it 1 in the 0 case, it will be returned as 1, 0 gives problems
 	matchData.offset = 1; // make it 1 in the 0 case, it will be returned as 1, 0 gives problems
+	// if(tx % 16 != 0){
+	// 	return matchData;
+	// }
     i = windowHead ;  // start at the beginning of the sliding window //
     j = 0; //counter for matchings
 
@@ -179,7 +182,7 @@ void checkCUDAError(const char *msg)
 }
 
 
-__global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SIZEBLOCK)
+__global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SIZEBLOCK, int interval)
 {
 
 
@@ -196,7 +199,7 @@ __global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SI
 	int loadcounter=0;
 	
 	int bx = blockIdx.x;
-	int tx = threadIdx.x; 
+	int tx = threadIdx.x * interval; 
 	
 	
    //***********************************************************************
@@ -424,10 +427,10 @@ int onestream_finish_GPU(int index)
 }
 
 int compression_kernel_wrapper(unsigned char *buffer, int buf_length, unsigned char * bufferout, int compression_type,int wsize,\
-								int numthre, int noop,int index,unsigned char * in_d,unsigned char * out_d)
+								int numthre, int noop,int index,unsigned char * in_d,unsigned char * out_d, int interval)
 {
 
-	int numThreads = numthre;
+	int numThreads = int(numthre / interval);
 	int numblocks = (buf_length / (PCKTSIZE*instreams)) + (((buf_length % (PCKTSIZE*instreams))>0)?1:0);
 	int i=0;
 
@@ -444,7 +447,7 @@ int compression_kernel_wrapper(unsigned char *buffer, int buf_length, unsigned c
     for(i = 0; i < instreams; i++)
 	{
 		EncodeKernel<<< numblocks, numThreads, 0, streams[index*instreams + i]>>>(in_d + i * (buf_length / instreams),\
-						out_d + 2 * i * (buf_length / instreams),numThreads);
+						out_d + 2 * i * (buf_length / instreams),numThreads, interval);
 		checkCUDAError("kernel invocation");   // Check for any CUDA errors
 	}
 	//copy memory back
