@@ -79,7 +79,7 @@ void *gpu_consumer (void *q)
 	queue *fifo;
 	int i, d;
 	int success=0;
-	int interval = 1;
+	int interval = 2;
 	fifo = (queue *)q;
 	int comp_length=0;
 	fifo->in_d = initGPUmem((int)blocksize);
@@ -119,7 +119,7 @@ void *gpu_consumer (void *q)
 		
 		gettimeofday(&t2_end,0);
 		time_d = (t2_end.tv_sec-t2_start.tv_sec) + (t2_end.tv_usec - t2_start.tv_usec)/1000000.0;
-		//printf("GPU kernel took:\t%f \t", time_d);
+		printf("GPU kernel took:\t%f \t", time_d);
 				
 		pthread_mutex_lock (fifo->mut);
 		fifo->ledger[fifo->headGC]++;
@@ -133,7 +133,7 @@ void *gpu_consumer (void *q)
 		
 		gettimeofday(&t1_end,0);
 		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
-		//printf("GPU whole took:\t%f \n", alltime);
+		printf("GPU whole took:\t%f \n", alltime);
 	}
 	
 	deleteGPUmem(fifo->in_d);
