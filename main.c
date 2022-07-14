@@ -271,7 +271,7 @@ int main (int argc, char* argv[])
 	alltime = (tall_end.tv_sec-tall_start.tv_sec) + (tall_end.tv_usec - tall_start.tv_usec)/1000000.0;
 	printf("\tAll the time took:\t%f \n", alltime);
 	int sizeinmb= totalsize / (1024*1024);
-	printf("\tThroughput for %d runs of %dMB is :\t%lfMbps \n", maxiters,sizeinmb, (sizeinmb*8)/alltime);
+	printf("\tThroughput for %d Bytes is :\t%lfMBps \n", totalsize, totalsize/(alltime*1024*1024));
 
 	free(bookkeeping);
 	//exit

@@ -92,14 +92,15 @@ void *gpu_consumer (void *q)
 {
 
 	struct timeval t1_start,t1_end,t2_start,t2_end;
-	double time_d, alltime;
+	double time_d, alltime, gpuAllTime;
 
 	queue *fifo;
 	int i, d;
 	int success=0;
-	int interval = 2;
+	int interval = 4;
 	fifo = (queue *)q;
 	int comp_length=0;
+	gpuAllTime = 0;
 	fifo->in_d = initGPUmem((int)blocksize);
 	fifo->out_d = initGPUmem((int)blocksize*2);
 	
@@ -120,7 +121,6 @@ void *gpu_consumer (void *q)
 			pthread_cond_wait (fifo->produced, fifo->mut);
 		}
 		pthread_mutex_unlock (fifo->mut);
-		
 		gettimeofday(&t2_start,0);	
 		
 		success=compression_kernel_wrapper(fifo->buf[fifo->headGC], blocksize, fifo->bufout[fifo->headGC], 
@@ -129,18 +129,21 @@ void *gpu_consumer (void *q)
 			printf("Compression failed. Success %d\n",success);
 		}
 		cudaDeviceSynchronize();
+		// printBuffer(fifo->buf[fifo->headGC]);
+		// printBufferOut(fifo->bufout[fifo->headGC]);
+		
+		gettimeofday(&t2_end,0);
+
 		for(int byind = 0; byind < blocksize; byind ++){
 			if(byind % interval != 0){
 				fifo->bufout[fifo->headGC][byind * 2] = 1;
 				fifo->bufout[fifo->headGC][byind * 2 + 1] = fifo->buf[fifo->headGC][byind];
 			}
 		}
-		// printBuffer(fifo->buf[fifo->headGC]);
-		// printBufferOut(fifo->bufout[fifo->headGC]);
-		
-		gettimeofday(&t2_end,0);
+
 		time_d = (t2_end.tv_sec-t2_start.tv_sec) + (t2_end.tv_usec - t2_start.tv_usec)/1000000.0;
-		printf("GPU kernel took:\t%f \t", time_d);
+		// printf("GPU kernel took:\t%f \t", time_d);
+		gpuAllTime += time_d;
 				
 		pthread_mutex_lock (fifo->mut);
 		fifo->ledger[fifo->headGC]++;
@@ -154,9 +157,9 @@ void *gpu_consumer (void *q)
 		
 		gettimeofday(&t1_end,0);
 		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
-		printf("GPU whole took:\t%f \n", alltime);
+		// printf("GPU whole took:\t%f \n", alltime);
 	}
-	
+	printf("GPU kernel took:\t%f \t\n", gpuAllTime);
 	deleteGPUmem(fifo->in_d);
 	deleteGPUmem(fifo->out_d);
 	
