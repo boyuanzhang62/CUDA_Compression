@@ -65,6 +65,24 @@ unsigned int * bookkeeping;
 
 int exit_signal = 0;
 
+void printBuffer(unsigned char* arr){
+	printf("this is front 16 values of input buffer:\n");
+	for(int byind = 0; byind < 16; byind ++){
+		printf("%d\t", arr[byind]);
+	}
+	printf("\n");
+}
+void printBufferOut(unsigned char* arr){
+	printf("this is front 32 values of output buffer:\n");
+	for(int byind = 0; byind < 16; byind ++){
+		printf("%d\t", arr[byind * 2]);
+	}
+	printf("\n");
+	for(int byind = 0; byind < 16; byind ++){
+		printf("%d\t", arr[byind * 2 + 1]);
+	}
+	printf("\n");
+}
 
 int getloopcount(){
 	return loopnum;
@@ -109,13 +127,16 @@ void *gpu_consumer (void *q)
 										0, 0, 128, 0,fifo->headGC, fifo->in_d, fifo->out_d, interval);
 		if(!success){
 			printf("Compression failed. Success %d\n",success);
-		}	
+		}
+		cudaDeviceSynchronize();
 		for(int byind = 0; byind < blocksize; byind ++){
 			if(byind % interval != 0){
 				fifo->bufout[fifo->headGC][byind * 2] = 1;
 				fifo->bufout[fifo->headGC][byind * 2 + 1] = fifo->buf[fifo->headGC][byind];
 			}
 		}
+		// printBuffer(fifo->buf[fifo->headGC]);
+		// printBufferOut(fifo->bufout[fifo->headGC]);
 		
 		gettimeofday(&t2_end,0);
 		time_d = (t2_end.tv_sec-t2_start.tv_sec) + (t2_end.tv_usec - t2_start.tv_usec)/1000000.0;

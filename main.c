@@ -153,7 +153,7 @@ int main (int argc, char* argv[])
 	double alltime;
 	
 	int opt;
-	numbls = 4;
+	numbls = 1;
 	maxiters = 0;
 	
 	/* parse command line */

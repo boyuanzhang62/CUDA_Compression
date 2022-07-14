@@ -102,7 +102,7 @@ int nstreams = 4*instreams;
 *                zero will be returned.
 ****************************************************************************/
 __device__ encoded_string_t FindMatch(int windowHead, int uncodedHead, unsigned char* slidingWindow, unsigned char* uncodedLookahead, \
-		int tx, int bx, int wfilepoint, int lastcheck, int loadcounter)
+		int tx, int bx, int wfilepoint, int lastcheck, int loadcounter, int interval)
 {
     encoded_string_t matchData;
     int i, j;
@@ -112,9 +112,9 @@ __device__ encoded_string_t FindMatch(int windowHead, int uncodedHead, unsigned 
 	
 	matchData.length = 1; // make it 1 in the 0 case, it will be returned as 1, 0 gives problems
 	matchData.offset = 1; // make it 1 in the 0 case, it will be returned as 1, 0 gives problems
-	// if(tx % 16 != 0){
-	// 	return matchData;
-	// }
+	if(tx % interval != 0){
+		return matchData;
+	}
     i = windowHead ;  // start at the beginning of the sliding window //
     j = 0; //counter for matchings
 
@@ -200,6 +200,7 @@ __global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SI
 	
 	int bx = blockIdx.x;
 	int tx = threadIdx.x * interval; 
+	// int tx = threadIdx.x; 
 	
 	
    //***********************************************************************
@@ -224,16 +225,28 @@ __global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SI
 	//*********************************************************************** //
   
 	//uncodedLookahead[tx] = tex1Dfetch(in_d_tex, bx * PCKTSIZE + tx); //in_d[bx * PCKTSIZE + tx];
-	uncodedLookahead[tx] = in_d[bx * PCKTSIZE + tx];
+	//modified to make each thread copy buffer bytes for the whole interval instead of only one byte
+	for(int ti = 0; ti < interval; ti++){
+		uncodedLookahead[tx + ti] = in_d[bx * PCKTSIZE + tx + ti];
+	}
+	// uncodedLookahead[tx] = in_d[bx * PCKTSIZE + tx];
 	filepoint+=MAX_CODED;
 	
-	slidingWindow[ (windowHead + WINDOW_SIZE ) % (WINDOW_SIZE + MAX_CODED) ] = uncodedLookahead[uncodedHead];
+	//same here for the sliding window
+	for(int ti = 0; ti < interval; ti++){
+		slidingWindow[ (windowHead + ti + WINDOW_SIZE ) % (WINDOW_SIZE + MAX_CODED) ] = uncodedLookahead[uncodedHead + ti];
+	}
+	// slidingWindow[ (windowHead + WINDOW_SIZE ) % (WINDOW_SIZE + MAX_CODED) ] = uncodedLookahead[uncodedHead];
 	//tex1Dfetch(in_d_tex, bx * PCKTSIZE + tx);//uncodedLookahead[uncodedHead];
 	
 	__syncthreads(); 
 	
 	//uncodedLookahead[MAX_CODED+tx] = tex1Dfetch(in_d_tex, bx * PCKTSIZE + filepoint + tx); //in_d[bx * PCKTSIZE + filepoint + tx];
-	uncodedLookahead[MAX_CODED+tx] = in_d[bx * PCKTSIZE + filepoint + tx];
+	//same here for the backup look ahead buffer
+	for(int ti = 0; ti < interval; ti++){
+		uncodedLookahead[MAX_CODED+tx + ti ] = in_d[bx * PCKTSIZE + filepoint + tx + ti];
+	}
+	// uncodedLookahead[MAX_CODED+tx] = in_d[bx * PCKTSIZE + filepoint + tx];
 	filepoint+=MAX_CODED;
 	
 
@@ -242,7 +255,7 @@ __global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SI
 	
     loadcounter++;
 	// Look for matching string in sliding window //	
-	matchData = FindMatch(windowHead, uncodedHead,slidingWindow,uncodedLookahead,  tx, bx, 0, 0,loadcounter);
+	matchData = FindMatch(windowHead, uncodedHead,slidingWindow,uncodedLookahead,  tx, bx, 0, 0,loadcounter, interval);
 	__syncthreads();  
 	
 	// now encoded the rest of the file until an EOF is read //
@@ -294,21 +307,33 @@ __global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SI
 		{
 			if(filepoint<PCKTSIZE){
 				//uncodedLookahead[(uncodedHead+ MAX_CODED)% (MAX_CODED*2)] = tex1Dfetch(in_d_tex, bx * PCKTSIZE + filepoint + tx);
-				uncodedLookahead[(uncodedHead+ MAX_CODED)% (MAX_CODED*2)] = in_d[bx * PCKTSIZE + filepoint + tx];
+				//same here 
+				for(int ti = 0; ti < interval; ti++){
+					uncodedLookahead[(uncodedHead + ti+ MAX_CODED)% (MAX_CODED*2)] = in_d[bx * PCKTSIZE + filepoint + tx + ti];
+				}
+				// uncodedLookahead[(uncodedHead + MAX_CODED)% (MAX_CODED*2)] = in_d[bx * PCKTSIZE + filepoint + tx];
 				filepoint+=MAX_CODED;
 				
 				//find the location for the thread specific view of window
-				slidingWindow[ (windowHead + WINDOW_SIZE ) % (WINDOW_SIZE + MAX_CODED) ] = uncodedLookahead[uncodedHead];
+				//same here 
+				for(int ti = 0; ti < interval; ti++){
+					slidingWindow[ (windowHead + ti + WINDOW_SIZE ) % (WINDOW_SIZE + MAX_CODED) ] = uncodedLookahead[uncodedHead + ti];
+				}
+				// slidingWindow[ (windowHead + WINDOW_SIZE ) % (WINDOW_SIZE + MAX_CODED) ] = uncodedLookahead[uncodedHead];
 				//__syncthreads(); 	
 			}
 			else{
-				lastcheck++;				
-				slidingWindow[(windowHead + MAX_CODED ) % (WINDOW_SIZE+MAX_CODED)] = '^';		
+				lastcheck++;
+				//same here 
+				for(int ti = 0; ti < interval; ti++){			
+					slidingWindow[(windowHead + ti + MAX_CODED ) % (WINDOW_SIZE+MAX_CODED)] = '^';
+				}	
+				// slidingWindow[(windowHead + MAX_CODED ) % (WINDOW_SIZE+MAX_CODED)] = '^';
 			}
 			__syncthreads(); 	
 			
 			loadcounter++;
-			matchData = FindMatch(windowHead, uncodedHead,slidingWindow,uncodedLookahead,tx,bx, wfilepoint, lastcheck,loadcounter);
+			matchData = FindMatch(windowHead, uncodedHead,slidingWindow,uncodedLookahead,tx,bx, wfilepoint, lastcheck,loadcounter, interval);
 		}
 		
 	} //while
@@ -431,6 +456,7 @@ int compression_kernel_wrapper(unsigned char *buffer, int buf_length, unsigned c
 {
 
 	int numThreads = int(numthre / interval);
+	// int numThreads = numthre;
 	int numblocks = (buf_length / (PCKTSIZE*instreams)) + (((buf_length % (PCKTSIZE*instreams))>0)?1:0);
 	int i=0;
 
