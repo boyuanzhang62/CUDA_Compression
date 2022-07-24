@@ -112,7 +112,7 @@ void *gpu_consumer (void *q)
 	fifo->in_d = initGPUmem((int)blocksize);
 	fifo->out_d = initGPUmem((int)blocksize*2);
 
-	unsigned int statisticOfMatch[128] = {0};
+	unsigned int statisticOfMatch[256] = {0};
 	
 	for (i = 0; i < maxiterations; i++) {
 		
@@ -133,7 +133,7 @@ void *gpu_consumer (void *q)
 		gettimeofday(&t2_start,0);	
 		
 		success=compression_kernel_wrapper(fifo->buf[fifo->headGC], blocksize, fifo->bufout[fifo->headGC], 
-										0, 0, 128, 0,fifo->headGC, fifo->in_d, fifo->out_d, interval);
+										0, 0, 256, 0,fifo->headGC, fifo->in_d, fifo->out_d, interval);
 		if(!success){
 			printf("Compression failed. Success %d\n",success);
 		}
@@ -144,6 +144,7 @@ void *gpu_consumer (void *q)
 		gettimeofday(&t2_end,0);
 
 		for(int byind = 0; byind < blocksize; byind ++){
+			
 			if(byind % interval != 0){
 				fifo->bufout[fifo->headGC][byind * 2] = 1;
 				fifo->bufout[fifo->headGC][byind * 2 + 1] = fifo->buf[fifo->headGC][byind];
@@ -172,7 +173,7 @@ void *gpu_consumer (void *q)
 	printf("GPU kernel took:\t%f \t\n", gpuAllTime);
 	deleteGPUmem(fifo->in_d);
 	deleteGPUmem(fifo->out_d);
-	// printStatistics(statisticOfMatch, 128);
+	printStatistics(statisticOfMatch, 256);
 	return (NULL);
 }
 
@@ -190,7 +191,7 @@ void *cpu_consumer (void *q)
 	int comp_length=0;
 	unsigned char * bckpbuf;
 	bckpbuf = (unsigned char *)malloc(sizeof(unsigned char)*blocksize);
-	unsigned int statisticOfMatch[128] = {0};
+	unsigned int statisticOfMatch[256] = {0};
 	
 	for (i = 0; i < maxiterations; i++) {
 
@@ -239,7 +240,7 @@ void *cpu_consumer (void *q)
 		gettimeofday(&t1_end,0);
 		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
 	}
-	printStatistics(statisticOfMatch, 128);
+	// printStatistics(statisticOfMatch, 128);
 	return (NULL);
 }
 
@@ -344,6 +345,7 @@ queue *queueInit (int maxit,int numb,int bsize)
 	for (i = 0; i < (numblocks); i++) {
 		//buffer[i] = (unsigned char *)malloc(blocksize * sizeof(unsigned char));
 		buffer[i] = (unsigned char *)initCPUmem(blocksize * sizeof(unsigned char));
+		printf("blocksize: %d\n", blocksize);
 		if (buffer[i] == NULL) {printf ("Memory error, buffer"); exit (2);}
 	}
 	for (i = 0; i < (numblocks); i++) {
