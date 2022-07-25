@@ -83,7 +83,6 @@ void printBufferOut(unsigned char* arr){
 	}
 	printf("\n");
 }
-
 int getloopcount(){
 	return loopnum;
 }
@@ -140,7 +139,6 @@ void *gpu_consumer (void *q)
 		cudaDeviceSynchronize();
 		// printBuffer(fifo->buf[fifo->headGC]);
 		// printBufferOut(fifo->bufout[fifo->headGC]);
-		
 		gettimeofday(&t2_end,0);
 
 		for(int byind = 0; byind < blocksize; byind ++){
@@ -151,7 +149,7 @@ void *gpu_consumer (void *q)
 			}
 			statisticOfMatch[fifo->bufout[fifo->headGC][byind * 2]] += 1;
 		}
-
+		
 		time_d = (t2_end.tv_sec-t2_start.tv_sec) + (t2_end.tv_usec - t2_start.tv_usec)/1000000.0;
 		// printf("GPU kernel took:\t%f \t", time_d);
 		gpuAllTime += time_d;
@@ -173,7 +171,7 @@ void *gpu_consumer (void *q)
 	printf("GPU kernel took:\t%f \t\n", gpuAllTime);
 	deleteGPUmem(fifo->in_d);
 	deleteGPUmem(fifo->out_d);
-	printStatistics(statisticOfMatch, 256);
+	// printStatistics(statisticOfMatch, 256);
 	return (NULL);
 }
 
@@ -240,7 +238,7 @@ void *cpu_consumer (void *q)
 		gettimeofday(&t1_end,0);
 		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
 	}
-	// printStatistics(statisticOfMatch, 128);
+	// printStatistics(statisticOfMatch, 256);
 	return (NULL);
 }
 

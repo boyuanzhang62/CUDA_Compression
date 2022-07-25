@@ -166,7 +166,7 @@ __device__ encoded_string_t FindMatch(int windowHead, int uncodedHead, unsigned 
 		matchData.offset = tempi;
 	}
 		
-	
+	// if(matchData.length>256) printf("match length is:%d\n", matchData.length);
     return matchData;
 }
 
@@ -600,6 +600,149 @@ void *aftercomp (void *q)
 	return 0;
 }
 
+__global__ void afterCompressionKernel(unsigned char * in_d, unsigned char * out_d, int* header)
+{
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	
+	int i=0, j=0, k=0, m=0, temptot=0, startPosJ=0;
+	int finish=0;
+	unsigned char flags =0;
+	unsigned char flagPos = 0x01;
+
+	unsigned char holdbuf[16];
+	int holdbufcount=0;
+	
+	//reset the flags again
+	flagPos = 0x01;
+	flags =0;
+	temptot=0;		
+	holdbufcount=0;
+
+	unsigned char * bufferout = out_d;
+	unsigned char * buffer = in_d;
+	
+	// i = (data->tid)*((buf_length*2)/(data->numts));
+	// j = (data->tid)*((buf_length)/(data->numts));
+	// k = (data->tid)*(buf_length/(PCKTSIZE*data->numts));
+	// finish = (data->tid + 1)*((buf_length)/(data->numts));
+
+	i = tid * PCKTSIZE * 2;
+	j = tid * PCKTSIZE * 2;
+	startPosJ = tid * PCKTSIZE * 2;
+	k = tid;
+	finish = tid * PCKTSIZE + PCKTSIZE;
+
+	while(i<(finish*2))
+	{	
+		temptot = bufferout[i];
+		if(temptot == 1) //if no matching
+		{
+			flags |= flagPos;       // mark with uncoded byte flag //
+			holdbuf[holdbufcount]=bufferout[i+1];
+			holdbufcount++;
+			i=i+2;
+		}		
+		else //if there is mathcing
+		{
+			if(i+(temptot*2) >= (finish*2)){
+				temptot = (finish * 2 - i) / 2;
+			}
+			holdbuf[holdbufcount]=temptot;
+			holdbufcount++;
+			holdbuf[holdbufcount]=bufferout[i+1];
+			holdbufcount++;
+			i=i+(temptot*2);
+		}
+					
+		if (flagPos == 0x80) //if we have looked at 8 characters that fills the flag holder
+		{
+			buffer[j] = flags;
+			j++;
+			
+			for(m=0;m<holdbufcount;m++){
+				buffer[j] = holdbuf[m];
+				j++;
+			}
+			
+			// reset encoded data buffer //
+			flags = 0;
+			flagPos = 0x01;
+			holdbufcount=0;
+		}
+		else
+		{
+			// we don't have 8 code flags yet, use next bit for next flag //
+			flagPos <<= 1;
+		}
+
+		// for each packet with the size of 4096 bytes
+		// if(i-(tid * PCKTSIZE * 2)==(PCKTSIZE*2)){ //PCKTSIZE*2
+		// 	if(holdbufcount>0){
+		// 		buffer[j] = flags;
+		// 		j++;
+		// 		for(m=0;m<holdbufcount;m++){
+		// 			buffer[j] = holdbuf[m];
+		// 			j++;
+		// 		}
+		// 		holdbufcount=0;
+		// 	}
+			
+		// 	flags = 0;
+		// 	flagPos = 0x01;		
+
+			
+		// }
+	}
+	header[k]=j-startPosJ;
+}
+
+
+int callAfterCompressionKernel(unsigned char *buffer, int buf_length, unsigned char * bufferout, int* hostHeader,\
+								int numthre, int index,unsigned char * in_d,unsigned char * out_d, int* deviceHeader)
+{
+	cudaEvent_t start, stop;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+	instreams = 4;
+	int numThreads = numthre;
+	int numblocks = (buf_length / (numthre * PCKTSIZE * instreams)) + (((buf_length % (numthre * PCKTSIZE*instreams))>0)?1:0);
+	int i=0;
+
+	cudaFuncSetCacheConfig(EncodeKernel, cudaFuncCachePreferL1);//cudaFuncCachePreferShared);
+
+	for(i = 0; i < instreams; i++)
+	{
+		//copy memory to cuda device
+		cudaMemcpyAsync(out_d + 2 * i * (buf_length / instreams), bufferout + 2 * i * (buf_length / instreams), \
+						sizeof(char)*(buf_length / instreams)*2, cudaMemcpyHostToDevice, streams[index*instreams + i]);
+		checkCUDAError("mem copy to gpu");
+		
+	}
+	cudaEventRecord (start, streams[index*instreams]);
+    for(i = 0; i < instreams; i++)
+	{
+		afterCompressionKernel<<< numblocks, numThreads, 0, streams[index*instreams + i]>>>(in_d+ 2 * i * (buf_length / instreams),\
+						out_d + 2 * i * (buf_length / instreams), deviceHeader+ i * (buf_length / (PCKTSIZE * instreams)));
+		checkCUDAError("kernel invocation");   // Check for any CUDA errors
+	}
+	cudaEventRecord (stop, streams[index*instreams+instreams-1]);
+	//copy memory back
+	for(i = 0; i < instreams; i++)
+	{	
+		cudaMemcpyAsync(buffer+ 2 * i * (buf_length / instreams), in_d+ 2 * i * (buf_length / instreams), \
+						sizeof(char)*(buf_length / instreams)*2,cudaMemcpyDeviceToHost, streams[index*instreams + i]);
+		checkCUDAError("mem copy back");
+		cudaMemcpyAsync(hostHeader+ i * (buf_length / (PCKTSIZE * instreams)), deviceHeader+ i * (buf_length / (PCKTSIZE * instreams)), \
+						sizeof(int)*(buf_length / (PCKTSIZE * instreams)),cudaMemcpyDeviceToHost, streams[index*instreams + i]);
+		checkCUDAError("mem copy back");
+	}
+	cudaEventSynchronize(stop);
+	float milliseconds = 0;
+	cudaEventElapsedTime(&milliseconds, start, stop);
+	printf("the cuda event gpu kernel time is: %f milliseconds\n", milliseconds);
+	return 1;
+}
+
 
 int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned char * bufferout, int * comp_length, unsigned int* statisticOfMatch)
 {
@@ -615,8 +758,17 @@ int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned ch
 	header = (int *)malloc (sizeof(int)*(buf_length/PCKTSIZE));
 	if (header == NULL) {printf ("Memory error, header"); exit (2);}	
 
-	pthread_t afcomp[NWORKERS];
+	// pthread_t afcomp[NWORKERS];
 	aftercompdata_t data[NWORKERS];
+
+	// initialization of memory used for gpu encode kernel
+	unsigned char* deviceInputBuffer = initGPUmem((int)buf_length * 2);
+	unsigned char* deviceOutputBuffer = initGPUmem((int)buf_length * 2);
+	int* deviceHeader;
+	cudaMalloc((void **)&deviceHeader, sizeof(int) * (buf_length/PCKTSIZE));
+	checkCUDAError("function, deviceHeader, mem alloc to gpu");
+	unsigned char * HostTmpBuffer = (unsigned char *)malloc (sizeof(unsigned char)*buf_length*2);
+	if (HostTmpBuffer == NULL) {printf ("Memory error, HostTmpBuffer"); exit (2);}
 
 	int l=0;
 	
@@ -632,16 +784,27 @@ int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned ch
 		data[l].newlen=0;
 		data[l].statisticOfMatch = statisticOfMatch;
 
-		pthread_create (&afcomp[l], NULL, &aftercomp, &data[l]);
+		// pthread_create (&afcomp[l], NULL, &aftercomp, &data[l]);
+		// if you modified headGC or headSP, you need to update the 0 here
+		callAfterCompressionKernel(HostTmpBuffer, data[l].buf_length, data[l].bufferout, data[l].header, 32, 0, deviceInputBuffer, deviceOutputBuffer, deviceHeader);
+		cudaDeviceSynchronize();
+		for(int bind = 0; bind < (buf_length/PCKTSIZE); bind ++){
+			if(data[l].newlen + data[l].header[bind] > buf_length){
+				data[l].comptookmore=1;
+				break;
+			}
+			memcpy (data[l].buffer + data[l].newlen, HostTmpBuffer + bind * PCKTSIZE * 2, data[l].header[bind]);
+			data[l].newlen += data[l].header[bind];
+		}
 		
 	}
 
 
 	int i=0, j=0, k=0;//, m=0, temptot=0, tempj=0;
-	void *status;
+	// void *status;
 
 	for(l=0;l<NWORKERS;l++){
-		pthread_join( afcomp[l], &status);
+		// pthread_join( afcomp[l], &status);
 		comptookmore += data[l].comptookmore;
 		if(l!=0)
 		{
