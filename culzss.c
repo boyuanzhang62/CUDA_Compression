@@ -173,7 +173,7 @@ void *gpu_consumer (void *q)
 	printf("GPU kernel took:\t%f \t\n", gpuAllTime);
 	deleteGPUmem(fifo->in_d);
 	deleteGPUmem(fifo->out_d);
-	printStatistics(statisticOfMatch, 256);
+	// printStatistics(statisticOfMatch, 256);
 	return (NULL);
 }
 
