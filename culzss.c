@@ -105,7 +105,7 @@ void *gpu_consumer (void *q)
 	queue *fifo;
 	int i, d;
 	int success=0;
-	int interval = 16;
+	int interval = 2;
 	fifo = (queue *)q;
 	int comp_length=0;
 	gpuAllTime = 0;
@@ -113,6 +113,7 @@ void *gpu_consumer (void *q)
 	fifo->out_d = initGPUmem((int)blocksize*2);
 
 	unsigned int statisticOfMatch[256] = {0};
+    double findMatchKernelTime = 0;
 	
 	for (i = 0; i < maxiterations; i++) {
 		
@@ -133,7 +134,7 @@ void *gpu_consumer (void *q)
 		gettimeofday(&t2_start,0);	
 		
 		success=compression_kernel_wrapper(fifo->buf[fifo->headGC], blocksize, fifo->bufout[fifo->headGC], 
-										0, 0, 256, 0,fifo->headGC, fifo->in_d, fifo->out_d, interval);
+										0, 0, 256, 0,fifo->headGC, fifo->in_d, fifo->out_d, interval, &findMatchKernelTime);
 		if(!success){
 			printf("Compression failed. Success %d\n",success);
 		}
@@ -170,7 +171,7 @@ void *gpu_consumer (void *q)
 		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
 		// printf("GPU whole took:\t%f \n", alltime);
 	}
-	printf("GPU kernel took:\t%f \t\n", gpuAllTime);
+	printf("findMatch kernel took: %lf milliseconds\n", findMatchKernelTime);
 	deleteGPUmem(fifo->in_d);
 	deleteGPUmem(fifo->out_d);
 	// printStatistics(statisticOfMatch, 256);
@@ -460,5 +461,3 @@ void join_comp_threads()
 	pthread_join (consend, NULL);
 	exit_signal = 3;
 }
-
-
