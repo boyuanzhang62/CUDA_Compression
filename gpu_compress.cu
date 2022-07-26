@@ -452,9 +452,11 @@ int onestream_finish_GPU(int index)
 }
 
 int compression_kernel_wrapper(unsigned char *buffer, int buf_length, unsigned char * bufferout, int compression_type,int wsize,\
-								int numthre, int noop,int index,unsigned char * in_d,unsigned char * out_d, int interval)
+								int numthre, int noop,int index,unsigned char * in_d,unsigned char * out_d, int interval, double* findMatchKernelTime)
 {
-
+	cudaEvent_t start, stop;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
 	int numThreads = int(numthre / interval);
 	// int numThreads = numthre;
 	int numblocks = (buf_length / (PCKTSIZE*instreams)) + (((buf_length % (PCKTSIZE*instreams))>0)?1:0);
@@ -469,13 +471,14 @@ int compression_kernel_wrapper(unsigned char *buffer, int buf_length, unsigned c
 						sizeof(char)*(buf_length / instreams),cudaMemcpyHostToDevice, streams[index*instreams + i]);
 		checkCUDAError("mem copy to gpu");
 	}
-	
+	cudaEventRecord (start, streams[index*instreams]);
     for(i = 0; i < instreams; i++)
 	{
 		EncodeKernel<<< numblocks, numThreads, 0, streams[index*instreams + i]>>>(in_d + i * (buf_length / instreams),\
 						out_d + 2 * i * (buf_length / instreams),numThreads, interval);
 		checkCUDAError("kernel invocation");   // Check for any CUDA errors
 	}
+	cudaEventRecord (stop, streams[index*instreams+instreams-1]);
 	//copy memory back
 	for(i = 0; i < instreams; i++)
 	{	
@@ -483,7 +486,11 @@ int compression_kernel_wrapper(unsigned char *buffer, int buf_length, unsigned c
 						sizeof(char)*(buf_length / instreams)*2, cudaMemcpyDeviceToHost, streams[index*instreams + i]);
 		checkCUDAError("mem copy back");
 	}
-	
+	cudaEventSynchronize(stop);
+	float milliseconds = 0;
+	cudaEventElapsedTime(&milliseconds, start, stop);
+	*findMatchKernelTime += milliseconds;
+	// printf("the cuda event gpu kernel time is: %f\n", milliseconds);
 		
 	return 1;
 }
