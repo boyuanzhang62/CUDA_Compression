@@ -481,6 +481,7 @@ __global__ void findMatchKernel(unsigned char * in_d, unsigned char * out_d, int
 
 	// Look for matching string in sliding window //	
 	matchData = findMatchInWholeSharedMemory(uncodedHead, uncodedLookahead, tx, bx, lastcheck, interval);
+	
 	filepoint+=MAX_CODED;
 	filepoint+=MAX_CODED;
 	
@@ -501,7 +502,7 @@ __global__ void findMatchKernel(unsigned char * in_d, unsigned char * out_d, int
 			// not long enough match.  write uncoded byte //
 			matchData.length = 1;   // set to 1 for 1 byte uncoded //
 			encodedData[wfilepoint + tx*interval*2] = 1;
-			encodedData[wfilepoint + tx*interval*2 + 1] = uncodedLookahead[uncodedHead];
+			encodedData[wfilepoint + tx*interval*2 + 1] = uncodedLookahead[wfilepoint / 2 + tx*interval];
 		}
 		else if(matchData.length > MAX_UNCODED)
 		{	
@@ -525,6 +526,8 @@ __global__ void findMatchKernel(unsigned char * in_d, unsigned char * out_d, int
 			lastcheck++;
 		}
 		matchData = findMatchInWholeSharedMemory(uncodedHead, uncodedLookahead, tx, bx, lastcheck, interval);
+		// if(matchData.length > 127)
+		// printf("matchData.length: %d\n", matchData.length);
 		
 	} //while
 	
