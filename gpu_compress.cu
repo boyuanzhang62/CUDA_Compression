@@ -489,7 +489,7 @@ int compression_kernel_wrapper(unsigned char *buffer, int buf_length, unsigned c
 	cudaEventSynchronize(stop);
 	float milliseconds = 0;
 	cudaEventElapsedTime(&milliseconds, start, stop);
-	printf("the cuda event gpu kernel time is: %f\n", milliseconds);
+	// printf("the cuda event gpu kernel time is: %f\n", milliseconds);
 	return 1;
 }
 
