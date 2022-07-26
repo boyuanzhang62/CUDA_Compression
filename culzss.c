@@ -104,7 +104,7 @@ void *gpu_consumer (void *q)
 	queue *fifo;
 	int i, d;
 	int success=0;
-	int interval = 16;
+	int interval = 2;
 	fifo = (queue *)q;
 	int comp_length=0;
 	gpuAllTime = 0;
@@ -137,8 +137,8 @@ void *gpu_consumer (void *q)
 			printf("Compression failed. Success %d\n",success);
 		}
 		cudaDeviceSynchronize();
-		// printBuffer(fifo->buf[fifo->headGC]);
-		// printBufferOut(fifo->bufout[fifo->headGC]);
+		printBuffer(fifo->buf[fifo->headGC]);
+		printBufferOut(fifo->bufout[fifo->headGC]);
 		gettimeofday(&t2_end,0);
 
 		for(int byind = 0; byind < blocksize; byind ++){
