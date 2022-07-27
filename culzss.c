@@ -78,10 +78,10 @@ void printBufferOut(unsigned char* arr){
 		printf("%d\t", arr[byind * 2]);
 	}
 	printf("\n");
-	for(int byind = 0; byind < 16; byind ++){
-		printf("%d\t", arr[byind * 2 + 1]);
-	}
-	printf("\n");
+	// for(int byind = 0; byind < 16; byind ++){
+	// 	printf("%d\t", arr[byind * 2 + 1]);
+	// }
+	// printf("\n");
 }
 int getloopcount(){
 	return loopnum;
@@ -104,7 +104,7 @@ void *gpu_consumer (void *q)
 	queue *fifo;
 	int i, d;
 	int success=0;
-	int interval = 8;
+	int interval = 1;
 	fifo = (queue *)q;
 	int comp_length=0;
 	gpuAllTime = 0;
@@ -137,8 +137,8 @@ void *gpu_consumer (void *q)
 			printf("Compression failed. Success %d\n",success);
 		}
 		cudaDeviceSynchronize();
-		// printBuffer(fifo->buf[fifo->headGC]);
-		// printBufferOut(fifo->bufout[fifo->headGC]);
+		printBuffer(fifo->buf[fifo->headGC]);
+		printBufferOut(fifo->bufout[fifo->headGC]);
 		gettimeofday(&t2_end,0);
 
 		for(int byind = 0; byind < blocksize; byind ++){
