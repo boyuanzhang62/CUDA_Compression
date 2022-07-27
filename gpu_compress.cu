@@ -602,15 +602,15 @@ void *aftercomp (void *q)
 }
 
 
-int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned char * bufferout, int * comp_length, unsigned int* statisticOfMatch)
+int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned char * bufferout, int * comp_length, unsigned int* statisticOfMatch, double* cpuEncodeTime)
 {
 		
 	int comptookmore = 0;
 
-	//struct timeval t1_start,t1_end;
-	//double alltime;
+	struct timeval t1_start,t1_end;
+	double alltime;
 
-	//gettimeofday(&t1_start,0);
+	
 	// allocate memory to contain the header of the file:
 	int * header;
 	header = (int *)malloc (sizeof(int)*(buf_length/PCKTSIZE));
@@ -632,7 +632,7 @@ int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned ch
 		data[l].comptookmore=0;
 		data[l].newlen=0;
 		data[l].statisticOfMatch = statisticOfMatch;
-
+		gettimeofday(&t1_start,0);
 		pthread_create (&afcomp[l], NULL, &aftercomp, &data[l]);
 		
 	}
@@ -643,6 +643,7 @@ int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned ch
 
 	for(l=0;l<NWORKERS;l++){
 		pthread_join( afcomp[l], &status);
+		gettimeofday(&t1_end,0);
 		comptookmore += data[l].comptookmore;
 		if(l!=0)
 		{
@@ -703,7 +704,8 @@ int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned ch
 	
 	*comp_length = j;
 	free(header);
-	
+	alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
+	*cpuEncodeTime += alltime;
 	return 1;
 
 

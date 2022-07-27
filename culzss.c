@@ -105,7 +105,7 @@ void *gpu_consumer (void *q)
 	queue *fifo;
 	int i, d;
 	int success=0;
-	int interval = 2;
+	int interval = 16;
 	fifo = (queue *)q;
 	int comp_length=0;
 	gpuAllTime = 0;
@@ -171,7 +171,7 @@ void *gpu_consumer (void *q)
 		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
 		// printf("GPU whole took:\t%f \n", alltime);
 	}
-	printf("findMatch kernel took: %lf milliseconds\n", findMatchKernelTime);
+	// printf("findMatch kernel took: %lf milliseconds\n", findMatchKernelTime);
 	deleteGPUmem(fifo->in_d);
 	deleteGPUmem(fifo->out_d);
 	// printStatistics(statisticOfMatch, 256);
@@ -193,6 +193,7 @@ void *cpu_consumer (void *q)
 	unsigned char * bckpbuf;
 	bckpbuf = (unsigned char *)malloc(sizeof(unsigned char)*blocksize);
 	unsigned int statisticOfMatch[256] = {0};
+    double cpuEncodeTime = 0;
 	
 	for (i = 0; i < maxiterations; i++) {
 
@@ -216,7 +217,7 @@ void *cpu_consumer (void *q)
 
 
 		memcpy (bckpbuf, fifo->buf[fifo->headCS], blocksize);
-		success=aftercompression_wrapper(fifo->buf[fifo->headCS], blocksize, fifo->bufout[fifo->headCS], &comp_length, statisticOfMatch);
+		success=aftercompression_wrapper(fifo->buf[fifo->headCS], blocksize, fifo->bufout[fifo->headCS], &comp_length, statisticOfMatch, &cpuEncodeTime);
 		if(!success){
 			printf("After Compression failed. Success %d return size %d\n",success,comp_length);
 			fifo->outsize[fifo->headCS] = 0;
@@ -242,6 +243,7 @@ void *cpu_consumer (void *q)
 		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
 	}
 	// printStatistics(statisticOfMatch, 128);
+    printf("cpu encode took: %lf seconds\n", cpuEncodeTime);
 	return (NULL);
 }
 
