@@ -698,7 +698,7 @@ __global__ void afterCompressionKernel(unsigned char * in_d, unsigned char * out
 
 
 int callAfterCompressionKernel(unsigned char *buffer, int buf_length, unsigned char * bufferout, int* hostHeader,\
-								int numthre, int index,unsigned char * in_d,unsigned char * out_d, int* deviceHeader)
+								int numthre, int index,unsigned char * in_d,unsigned char * out_d, int* deviceHeader, double* encodeKernelTime)
 {
 	cudaEvent_t start, stop;
 	cudaEventCreate(&start);
@@ -739,12 +739,13 @@ int callAfterCompressionKernel(unsigned char *buffer, int buf_length, unsigned c
 	cudaEventSynchronize(stop);
 	float milliseconds = 0;
 	cudaEventElapsedTime(&milliseconds, start, stop);
-	printf("the cuda event gpu kernel time is: %f milliseconds\n", milliseconds);
+	*encodeKernelTime += milliseconds;
+	// printf("the cuda event gpu kernel time is: %f milliseconds\n", milliseconds);
 	return 1;
 }
 
 
-int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned char * bufferout, int * comp_length, unsigned int* statisticOfMatch)
+int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned char * bufferout, int * comp_length, unsigned int* statisticOfMatch, double* encodeKernelTime)
 {
 		
 	int comptookmore = 0;
@@ -786,7 +787,7 @@ int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned ch
 
 		// pthread_create (&afcomp[l], NULL, &aftercomp, &data[l]);
 		// if you modified headGC or headSP, you need to update the 0 here
-		callAfterCompressionKernel(HostTmpBuffer, data[l].buf_length, data[l].bufferout, data[l].header, 32, 0, deviceInputBuffer, deviceOutputBuffer, deviceHeader);
+		callAfterCompressionKernel(HostTmpBuffer, data[l].buf_length, data[l].bufferout, data[l].header, 32, 0, deviceInputBuffer, deviceOutputBuffer, deviceHeader, encodeKernelTime);
 		cudaDeviceSynchronize();
 		for(int bind = 0; bind < (buf_length/PCKTSIZE); bind ++){
 			if(data[l].newlen + data[l].header[bind] > buf_length){
