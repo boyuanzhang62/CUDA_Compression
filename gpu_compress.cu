@@ -829,7 +829,7 @@ int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned ch
 			memcpy (data[l].buffer + data[l].newlen, HostTmpBuffer + bind * PCKTSIZE * 2, data[l].header[bind]);
 			data[l].newlen += data[l].header[bind];
 		}
-		printBuffer(data[l].buffer);
+		// printBuffer(data[l].buffer);
 		// printBufferOut(data[l].bufferout);
 		
 	}
