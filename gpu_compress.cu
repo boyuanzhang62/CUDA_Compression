@@ -114,7 +114,7 @@ void printBuffer(unsigned char* arr){
 }
 void printBufferOut(unsigned char* arr){
 	printf("this is length of output buffer:\n");
-	for(int i = 0; i < 256; i ++){
+	for(int i = 0; i < 4096; i ++){
 		for(int byind = 0; byind < 16; byind ++){
 			printf("%d\t", arr[i * 16 * 2 + byind * 2]);
 		}
@@ -122,7 +122,7 @@ void printBufferOut(unsigned char* arr){
 	}
 	printf("================================\n");
 	printf("this is offset of output buffer:\n");
-	for(int i = 0; i < 256; i ++){
+	for(int i = 0; i < 4096; i ++){
 		for(int byind = 0; byind < 16; byind ++){
 			printf("%d\t", arr[i * 16 + byind * 2 + 1]);
 		}
@@ -674,7 +674,7 @@ int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned ch
 	for(l=0;l<NWORKERS;l++){
 		pthread_join( afcomp[l], &status);
 		gettimeofday(&t1_end,0);
-		printBuffer(data[l].buffer);
+		// printBuffer(data[l].buffer);
 		printBufferOut(data[l].bufferout);
 		comptookmore += data[l].comptookmore;
 		if(l!=0)
