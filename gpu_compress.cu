@@ -101,6 +101,36 @@ int nstreams = 4*instreams;
 *                length of the match.  If there is no match a length of
 *                zero will be returned.
 ****************************************************************************/
+
+void printBuffer(unsigned char* arr){
+	printf("this is 128 values of input buffer:\n");
+	for(int i = 0; i < 8; i ++){
+		for(int byind = 0; byind < 16; byind ++){
+			printf("%d\t", arr[i * 16 + byind]);
+		}
+		printf("\n");
+	}
+	printf("\n");
+}
+void printBufferOut(unsigned char* arr){
+	printf("this is length of output buffer:\n");
+	for(int i = 0; i < 4096; i ++){
+		for(int byind = 0; byind < 16; byind ++){
+			printf("%d\t", arr[i * 16 * 2 + byind * 2]);
+		}
+		printf("\n");
+	}
+	printf("================================\n");
+	printf("this is offset of output buffer:\n");
+	for(int i = 0; i < 4096; i ++){
+		for(int byind = 0; byind < 16; byind ++){
+			printf("%d\t", arr[i * 16 + byind * 2 + 1]);
+		}
+		printf("\n");
+	}
+	printf("\n");
+}
+
 __device__ encoded_string_t FindMatch(int windowHead, int uncodedHead, unsigned char* slidingWindow, unsigned char* uncodedLookahead, \
 		int tx, int bx, int wfilepoint, int lastcheck, int loadcounter, int interval)
 {
@@ -990,7 +1020,7 @@ int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned ch
 			memcpy (data[l].buffer + data[l].newlen, HostTmpBuffer + bind * PCKTSIZE * 2, data[l].header[bind]);
 			data[l].newlen += data[l].header[bind];
 		}
-		
+		printBufferOut(data[l].bufferout);
 	}
 
 
