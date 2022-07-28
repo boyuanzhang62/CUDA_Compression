@@ -239,7 +239,9 @@ __global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SI
    // * increased chance of matching to the earlier strings.
    // *********************************************************************** //
 
-	slidingWindow[tx] = ' ';
+	for(int ti = 0; ti < 2 * interval; ti++){
+		slidingWindow[2 * tx + ti] = ' ';
+	}
 	windowHead = tx;
 	uncodedHead = tx;	
 	filepoint=0;
