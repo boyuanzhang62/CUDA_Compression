@@ -104,7 +104,7 @@ int nstreams = 4*instreams;
 
 void printBuffer(unsigned char* arr){
 	printf("this is 128 values of input buffer:\n");
-	for(int i = 0; i < 8; i ++){
+	for(int i = 0; i < 1024; i ++){
 		for(int byind = 0; byind < 16; byind ++){
 			printf("%d\t", arr[i * 16 + byind]);
 		}
@@ -114,7 +114,7 @@ void printBuffer(unsigned char* arr){
 }
 void printBufferOut(unsigned char* arr){
 	printf("this is length of output buffer:\n");
-	for(int i = 0; i < 256; i ++){
+	for(int i = 0; i < 1024; i ++){
 		for(int byind = 0; byind < 16; byind ++){
 			printf("%d\t", arr[i * 16 * 2 + byind * 2]);
 		}
@@ -122,7 +122,7 @@ void printBufferOut(unsigned char* arr){
 	}
 	printf("================================\n");
 	printf("this is offset of output buffer:\n");
-	for(int i = 0; i < 256; i ++){
+	for(int i = 0; i < 1024; i ++){
 		for(int byind = 0; byind < 16; byind ++){
 			printf("%d\t", arr[i * 16 + byind * 2 + 1]);
 		}
@@ -674,9 +674,9 @@ __global__ void afterCompressionKernel(unsigned char * in_d, unsigned char * out
 		}		
 		else //if there is mathcing
 		{
-			if(i+(temptot*2) >= (finish*2)){
-				temptot = (finish * 2 - i) / 2;
-			}
+			// if(i+(temptot*2) >= (finish*2)){
+			// 	temptot = (finish * 2 - i) / 2;
+			// }
 			holdbuf[holdbufcount]=temptot;
 			holdbufcount++;
 			holdbuf[holdbufcount]=bufferout[i+1];
@@ -706,22 +706,20 @@ __global__ void afterCompressionKernel(unsigned char * in_d, unsigned char * out
 		}
 
 		// for each packet with the size of 4096 bytes
-		// if(i-(tid * PCKTSIZE * 2)==(PCKTSIZE*2)){ //PCKTSIZE*2
-		// 	if(holdbufcount>0){
-		// 		buffer[j] = flags;
-		// 		j++;
-		// 		for(m=0;m<holdbufcount;m++){
-		// 			buffer[j] = holdbuf[m];
-		// 			j++;
-		// 		}
-		// 		holdbufcount=0;
-		// 	}
+		if(i-(tid * PCKTSIZE * 2)==(PCKTSIZE*2)){ //PCKTSIZE*2
+			if(holdbufcount>0){
+				buffer[j] = flags;
+				j++;
+				for(m=0;m<holdbufcount;m++){
+					buffer[j] = holdbuf[m];
+					j++;
+				}
+				holdbufcount=0;
+			}
 			
-		// 	flags = 0;
-		// 	flagPos = 0x01;		
-
-			
-		// }
+			flags = 0;
+			flagPos = 0x01;
+		}
 	}
 	header[k]=j-startPosJ;
 }
@@ -771,6 +769,8 @@ int callAfterCompressionKernel(unsigned char *buffer, int buf_length, unsigned c
 	cudaEventElapsedTime(&milliseconds, start, stop);
 	*encodeKernelTime += milliseconds;
 	// printf("the cuda event gpu kernel time is: %f milliseconds\n", milliseconds);
+	// printBuffer(data[l].buffer);
+	// printBufferOut(bufferout);
 	return 1;
 }
 
@@ -828,7 +828,7 @@ int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned ch
 			data[l].newlen += data[l].header[bind];
 		}
 		printBuffer(data[l].buffer);
-		printBufferOut(data[l].bufferout);
+		// printBufferOut(data[l].bufferout);
 		
 	}
 
