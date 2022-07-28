@@ -132,9 +132,8 @@ void *gpu_consumer (void *q)
 		}
 		pthread_mutex_unlock (fifo->mut);
 		gettimeofday(&t2_start,0);	
-		
 		success=compression_kernel_wrapper(fifo->buf[fifo->headGC], blocksize, fifo->bufout[fifo->headGC], 
-										0, 0, 256, 0,fifo->headGC, fifo->in_d, fifo->out_d, interval, &findMatchKernelTime);
+										0, i, 256, 0,fifo->headGC, fifo->in_d, fifo->out_d, interval, &findMatchKernelTime);
 		if(!success){
 			printf("Compression failed. Success %d\n",success);
 		}

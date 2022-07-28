@@ -142,9 +142,9 @@ __device__ encoded_string_t FindMatch(int windowHead, int uncodedHead, unsigned 
 	
 	matchData.length = 1; // make it 1 in the 0 case, it will be returned as 1, 0 gives problems
 	matchData.offset = 1; // make it 1 in the 0 case, it will be returned as 1, 0 gives problems
-	if(tx % interval != 0){
-		return matchData;
-	}
+	// if(tx % interval != 0){
+	// 	return matchData;
+	// }
     i = windowHead ;  // start at the beginning of the sliding window //
     j = 0; //counter for matchings
 
@@ -212,7 +212,7 @@ void checkCUDAError(const char *msg)
 }
 
 
-__global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SIZEBLOCK, int interval)
+__global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SIZEBLOCK, int interval, int flg0, int flg1)
 {
 
 
@@ -239,14 +239,18 @@ __global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SI
    // * increased chance of matching to the earlier strings.
    // *********************************************************************** //
 
-	slidingWindow[tx] = ' ';
+	// slidingWindow[tx] = ' ';
+	for(int ti = 0; ti < 2 * interval; ti++){
+		slidingWindow[2 * tx + ti] = ' ';
+	}
+	__syncthreads();
 	windowHead = tx;
 	uncodedHead = tx;	
 	filepoint=0;
 	wfilepoint=0;
 	lastcheck=0;
 	
-	__syncthreads();
+	
 
 	
 	//***********************************************************************
@@ -261,7 +265,7 @@ __global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SI
 	}
 	// uncodedLookahead[tx] = in_d[bx * PCKTSIZE + tx];
 	filepoint+=MAX_CODED;
-	
+	__syncthreads(); 
 	//same here for the sliding window
 	for(int ti = 0; ti < interval; ti++){
 		slidingWindow[ (windowHead + ti + WINDOW_SIZE ) % (WINDOW_SIZE + MAX_CODED) ] = uncodedLookahead[uncodedHead + ti];
@@ -279,9 +283,35 @@ __global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SI
 	// uncodedLookahead[MAX_CODED+tx] = in_d[bx * PCKTSIZE + filepoint + tx];
 	filepoint+=MAX_CODED;
 	
-
 	
 	__syncthreads();
+
+	// if(flg0 == 3 && flg1 == 0 && bx == 0 && tx == 0){
+	// 	printf("this is slidingWindow:\n");
+	// 	for(int i = 0; i < 32; i ++){
+	// 		for(int byind = 0; byind < 16; byind ++){
+	// 			printf("%d\t", slidingWindow[i * 16 + byind]);
+	// 		}
+	// 		printf("\n");
+	// 	}
+	// 	printf("\n");
+	// 	printf("this is uncodedLookahead:\n");
+	// 	for(int i = 0; i < 32; i ++){
+	// 		for(int byind = 0; byind < 16; byind ++){
+	// 			printf("%d\t", uncodedLookahead[i * 16 + byind]);
+	// 		}
+	// 		printf("\n");
+	// 	}
+	// 	printf("\n");
+	// 	printf("this is encodedData:\n");
+	// 	for(int i = 0; i < 32; i ++){
+	// 		for(int byind = 0; byind < 16; byind ++){
+	// 			printf("%d\t", encodedData[i * 16 + byind]);
+	// 		}
+	// 		printf("\n");
+	// 	}
+	// 	printf("\n");
+	// }
 	
     loadcounter++;
 	// Look for matching string in sliding window //	
@@ -334,37 +364,37 @@ __global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SI
 		//}	
 		
 		//if(!lastcheck)
-		{
-			if(filepoint<PCKTSIZE){
-				//uncodedLookahead[(uncodedHead+ MAX_CODED)% (MAX_CODED*2)] = tex1Dfetch(in_d_tex, bx * PCKTSIZE + filepoint + tx);
-				//same here 
-				for(int ti = 0; ti < interval; ti++){
-					uncodedLookahead[(uncodedHead + ti+ MAX_CODED)% (MAX_CODED*2)] = in_d[bx * PCKTSIZE + filepoint + tx + ti];
-				}
-				// uncodedLookahead[(uncodedHead + MAX_CODED)% (MAX_CODED*2)] = in_d[bx * PCKTSIZE + filepoint + tx];
-				filepoint+=MAX_CODED;
-				
-				//find the location for the thread specific view of window
-				//same here 
-				for(int ti = 0; ti < interval; ti++){
-					slidingWindow[ (windowHead + ti + WINDOW_SIZE ) % (WINDOW_SIZE + MAX_CODED) ] = uncodedLookahead[uncodedHead + ti];
-				}
-				// slidingWindow[ (windowHead + WINDOW_SIZE ) % (WINDOW_SIZE + MAX_CODED) ] = uncodedLookahead[uncodedHead];
-				//__syncthreads(); 	
+		
+		if(filepoint<PCKTSIZE){
+			//uncodedLookahead[(uncodedHead+ MAX_CODED)% (MAX_CODED*2)] = tex1Dfetch(in_d_tex, bx * PCKTSIZE + filepoint + tx);
+			//same here 
+			for(int ti = 0; ti < interval; ti++){
+				uncodedLookahead[(uncodedHead + ti+ MAX_CODED)% (MAX_CODED*2)] = in_d[bx * PCKTSIZE + filepoint + tx + ti];
 			}
-			else{
-				lastcheck++;
-				//same here 
-				for(int ti = 0; ti < interval; ti++){			
-					slidingWindow[(windowHead + ti + MAX_CODED ) % (WINDOW_SIZE+MAX_CODED)] = '^';
-				}	
-				// slidingWindow[(windowHead + MAX_CODED ) % (WINDOW_SIZE+MAX_CODED)] = '^';
-			}
-			__syncthreads(); 	
+			// uncodedLookahead[(uncodedHead + MAX_CODED)% (MAX_CODED*2)] = in_d[bx * PCKTSIZE + filepoint + tx];
+			filepoint+=MAX_CODED;
 			
-			loadcounter++;
-			matchData = FindMatch(windowHead, uncodedHead,slidingWindow,uncodedLookahead,tx,bx, wfilepoint, lastcheck,loadcounter, interval);
+			//find the location for the thread specific view of window
+			//same here 
+			for(int ti = 0; ti < interval; ti++){
+				slidingWindow[ (windowHead + ti + WINDOW_SIZE ) % (WINDOW_SIZE + MAX_CODED) ] = uncodedLookahead[uncodedHead + ti];
+			}
+			// slidingWindow[ (windowHead + WINDOW_SIZE ) % (WINDOW_SIZE + MAX_CODED) ] = uncodedLookahead[uncodedHead];
+			//__syncthreads(); 	
 		}
+		else{
+			lastcheck++;
+			//same here 
+			for(int ti = 0; ti < interval; ti++){			
+				slidingWindow[(windowHead + ti + MAX_CODED ) % (WINDOW_SIZE+MAX_CODED)] = '^';
+			}	
+			// slidingWindow[(windowHead + MAX_CODED ) % (WINDOW_SIZE+MAX_CODED)] = '^';
+		}
+		__syncthreads(); 	
+		
+		loadcounter++;
+		matchData = FindMatch(windowHead, uncodedHead,slidingWindow,uncodedLookahead,tx,bx, wfilepoint, lastcheck,loadcounter, interval);
+		
 		
 	} //while
 	
@@ -505,7 +535,7 @@ int compression_kernel_wrapper(unsigned char *buffer, int buf_length, unsigned c
     for(i = 0; i < instreams; i++)
 	{
 		EncodeKernel<<< numblocks, numThreads, 0, streams[index*instreams + i]>>>(in_d + i * (buf_length / instreams),\
-						out_d + 2 * i * (buf_length / instreams),numThreads, interval);
+						out_d + 2 * i * (buf_length / instreams),numThreads, interval, wsize, i);
 		checkCUDAError("kernel invocation");   // Check for any CUDA errors
 	}
 	cudaEventRecord (stop, streams[index*instreams+instreams-1]);
@@ -675,7 +705,7 @@ int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned ch
 		pthread_join( afcomp[l], &status);
 		gettimeofday(&t1_end,0);
 		// printBuffer(data[l].buffer);
-		printBufferOut(data[l].bufferout);
+		// printBufferOut(data[l].bufferout);
 		comptookmore += data[l].comptookmore;
 		if(l!=0)
 		{
