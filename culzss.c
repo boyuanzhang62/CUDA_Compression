@@ -64,6 +64,7 @@ char * outputfilename;
 unsigned int * bookkeeping;
 
 int exit_signal = 0;
+extern int intervalSize;
 
 void printBuffer(unsigned char* arr){
 	printf("this is front 16 values of input buffer:\n");
@@ -105,7 +106,7 @@ void *gpu_consumer (void *q)
 	queue *fifo;
 	int i, d;
 	int success=0;
-	int interval = 2;
+	int interval = intervalSize;
 	fifo = (queue *)q;
 	int comp_length=0;
 	gpuAllTime = 0;
@@ -113,7 +114,8 @@ void *gpu_consumer (void *q)
 	fifo->out_d = initGPUmem((int)blocksize*2);
 
 	unsigned int statisticOfMatch[256] = {0};
-    double findMatchKernelTime = 0;
+    double matchingkernelTime = 0;
+	double d2hMemoryTime = 0;
 	
 	for (i = 0; i < maxiterations; i++) {
 		
@@ -133,7 +135,7 @@ void *gpu_consumer (void *q)
 		pthread_mutex_unlock (fifo->mut);
 		gettimeofday(&t2_start,0);	
 		success=compression_kernel_wrapper(fifo->buf[fifo->headGC], blocksize, fifo->bufout[fifo->headGC], 
-										0, i, 256, 0,fifo->headGC, fifo->in_d, fifo->out_d, interval, &findMatchKernelTime);
+										0, i, 256, 0,fifo->headGC, fifo->in_d, fifo->out_d, interval, &matchingkernelTime, &d2hMemoryTime);
 		if(!success){
 			printf("Compression failed. Success %d\n",success);
 		}
@@ -170,7 +172,8 @@ void *gpu_consumer (void *q)
 		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
 		// printf("GPU whole took:\t%f \n", alltime);
 	}
-	// printf("findMatch kernel took: %lf milliseconds\n", findMatchKernelTime);
+	printf("Matching kernel took: %lf milliseconds\n", matchingkernelTime);
+	printf("D2H memory copy took: %lf milliseconds\n", d2hMemoryTime);
 	deleteGPUmem(fifo->in_d);
 	deleteGPUmem(fifo->out_d);
 	// printStatistics(statisticOfMatch, 256);
@@ -242,7 +245,7 @@ void *cpu_consumer (void *q)
 		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
 	}
 	// printStatistics(statisticOfMatch, 128);
-    printf("cpu encode took: %lf seconds\n", cpuEncodeTime);
+    printf("cpu encode took: %lf milliseconds\n", cpuEncodeTime * 1000);
 	return (NULL);
 }
 
