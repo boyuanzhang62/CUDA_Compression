@@ -143,7 +143,7 @@ void *cpu_consumer (void *q)
 	aftercompression_wrapper(fifo->in_d, fifo->out_d, fifo->encodedHostMemory, fifo->encodedHostSize, \
 							 fifo->deviceHeader, fifo->hostHeader, blocksize, maxiterations, &encodeKernelTime, blocksize);
 
-    printf("encode kernel time: %lf\n", encodeKernelTime);
+    printf("encoding kernel time: %lf\n", encodeKernelTime);
 	deleteGPUmem(fifo->in_d);
 	deleteGPUmem(fifo->out_d);
 	deleteGPUmem(fifo->deviceHeader);
