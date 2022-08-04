@@ -780,7 +780,7 @@ int aftercompression_wrapper(unsigned char * deviceBuffer, unsigned char * devic
 		}
 	}
 	int i=0, j=0, k=0;
-	for(int ite = 0; ite < maxIteration; i ++){
+	for(int ite = 0; ite < maxIteration; ite++){
 		j = encodedHostSize[ite];
 		k = buf_length / PCKTSIZE;
 
@@ -791,9 +791,6 @@ int aftercompression_wrapper(unsigned char * deviceBuffer, unsigned char * devic
 			encodedHostMemory[ite * buf_length * 2 + j]=cc;
 			j++;
 			cc = (unsigned char)hostHeader[ite * buf_length / PCKTSIZE + i];
-			// printf("size is %d\n", ite * buf_length * 2 + j);
-			if(ite * buf_length * 2 + j >= buf_length * maxIteration * 2)
-			printf("index out of range: %d\n", ite * buf_length * 2 + j);
 			encodedHostMemory[ite * buf_length * 2 + j]=cc;
 			j++;
 		}

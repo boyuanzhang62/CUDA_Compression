@@ -125,7 +125,6 @@ void *producer (void *q)
 		}
 	}
 	fclose(inFile);
-	
 	return (NULL);
 }
 
@@ -205,7 +204,7 @@ int main (int argc, char* argv[])
 	}
 	
 
-	printf("file size:%d",totalsize);
+	// printf("file size:%d",totalsize);
 	//decide buf sizes
 	
 	if(totalsize < BUFSIZE)
@@ -221,7 +220,7 @@ int main (int argc, char* argv[])
 		padding = (padding)?(buffersize-padding):0;
 		blsize = buffersize;
 	}
-	printf(" eachblock_size:%d num_of_blocks:%d padding:%d \n",blsize,maxiters, padding);
+	// printf(" eachblock_size:%d num_of_blocks:%d padding:%d \n",blsize,maxiters, padding);
 	
 	bookkeeping = (unsigned int * )malloc(sizeof(int)*(maxiters+2)); //# of blocks, each block size, padding size 
 	bookkeeping[0] = maxiters;
@@ -242,7 +241,7 @@ int main (int argc, char* argv[])
 	
 	//init compression threads
 	init_compression(fifo,maxiters,numbls,blsize,outputfilename,bookkeeping);
-
+	
 	//join producer
 	queueDelete (fifo);
 

@@ -137,7 +137,7 @@ void *cpu_consumer (void *q)
 	}
 	fifo->deviceHeader = initGPUmem(sizeof(int) * blocksize * maxiterations / PCKTSIZE);
 	fifo->hostHeader = (int *)malloc(sizeof(int) * blocksize * maxiterations / PCKTSIZE);
-	
+
 	aftercompression_wrapper(fifo->in_d, fifo->out_d, fifo->encodedHostMemory, fifo->encodedHostSize, \
 							 fifo->deviceHeader, fifo->hostHeader, blocksize, maxiterations, &encodeKernelTime, blocksize);
 
@@ -163,15 +163,16 @@ void *cpu_sender (void *q)
 	int size=0;
 
 	fwrite(bookkeeping, sizeof(unsigned int), maxiterations+2, outFile);
-		
+	
 	for (i = 0; i < maxiterations; i++) 
 	{
 		size = fifo->encodedHostSize[i];
 		bookkeeping[i + 2] = size + ((i==0)?0:bookkeeping[i+1]);
 
-		fwrite(fifo->encodedHostMemory[blocksize * i * 2], size, 1, outFile);
+		fwrite(fifo->encodedHostMemory + blocksize * i * 2, size, 1, outFile);
 		loopnum++;
 	}
+	
 	fseek ( outFile , 0 , SEEK_SET );
 	fwrite(bookkeeping, sizeof(unsigned int), maxiterations+2, outFile);
 	fclose(outFile);
@@ -212,7 +213,6 @@ queue *queueInit (int maxit,int numb,int bsize)
 	for (i = 0; i < (numblocks); i++) {
 		//buffer[i] = (unsigned char *)malloc(blocksize * sizeof(unsigned char));
 		buffer[i] = (unsigned char *)initCPUmem(blocksize * sizeof(unsigned char));
-		printf("blocksize: %d\n", blocksize);
 		if (buffer[i] == NULL) {printf ("Memory error, buffer"); exit (2);}
 	}
 	for (i = 0; i < (numblocks); i++) {
@@ -268,7 +268,7 @@ void queueDelete (queue *q)
 {
 	int i =0;
 	
-	signalExitThreads();
+	// signalExitThreads();
 	
 	pthread_mutex_destroy (q->mut);
 	free (q->mut);	
@@ -280,7 +280,6 @@ void queueDelete (queue *q)
 	free (q->sendready);	
 	pthread_cond_destroy (q->sent);
 	free (q->sent);
-
 	
 	for (i = 0; i < (numblocks); i++) {
 		deleteCPUmem(q->bufout[i]);	
@@ -298,7 +297,6 @@ void queueDelete (queue *q)
 	free(q->hostHeader);
 	free (q);
 	
-	
 	resetGPU();
 
 }
@@ -311,7 +309,7 @@ void  init_compression(queue * fifo,int maxit,int numb,int bsize, char * filenam
 	blocksize=bsize;
 	outputfilename = filename;
 	bookkeeping = book;
-	printf("Initializing the GPU\n");
+	// printf("Initializing the GPU\n");
 	initGPU();
 	//create consumer threades
 	gpu_consumer(fifo);
