@@ -106,21 +106,15 @@ void *producer (void *q)
 
 	//read file into memory
 	fifo = (queue *)q;
+
+	fifo->encodedHostMemory = (unsigned char *)malloc(maxiters * blsize * 2);
+
 	if ((inFile = fopen(inputfilename, "rb")) == NULL){
 		printf ("Memory error, temp"); exit (2);
 	}		
 	
 	for (i = 0; i < maxiters; i++) {
-		
-		gettimeofday(&t1_start,0);	
-	
-		pthread_mutex_lock (fifo->mut);
-		while (fifo->ledger[fifo->headPG]!=0) {
-			//printf ("producer: queue FULL.\n");
-			pthread_cond_wait (fifo->sent, fifo->mut);
-		}
-		
-		int result = fread (fifo->buf[fifo->headPG],1,blsize,inFile);
+		int result = fread (fifo->encodedHostMemory + i * blsize * 2, 1, blsize, inFile);
 		if (result != blsize ) 
 		{
 			if(i!=maxiters-1)
@@ -129,18 +123,6 @@ void *producer (void *q)
 				exit (3);
 			}	
 		}
-		
-		fifo->ledger[fifo->headPG]++;
-		fifo->headPG++;
-		if (fifo->headPG == numbls)
-			fifo->headPG = 0;
-
-		pthread_mutex_unlock (fifo->mut);
-		pthread_cond_signal (fifo->produced);
-		
-		
-		gettimeofday(&t1_end,0);
-		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
 	}
 	fclose(inFile);
 	
@@ -255,24 +237,17 @@ int main (int argc, char* argv[])
 		fprintf (stderr, "main: Queue Init failed.\n");
 		exit (1);
 	}	
+
+	producer(fifo);
 	
 	//init compression threads
 	init_compression(fifo,maxiters,numbls,blsize,outputfilename,bookkeeping);
 
-	//create producer
-	pthread_create (&pro, NULL, producer, fifo);
-
-	//join all 
-	join_comp_threads();
 	//join producer
-	pthread_join (pro, NULL);
 	queueDelete (fifo);
 
 	gettimeofday(&tall_end,0);
 	alltime = (tall_end.tv_sec-tall_start.tv_sec) + (tall_end.tv_usec - tall_start.tv_usec)/1000000.0;
-	printf("\tAll the time took:\t%f \n", alltime);
-	int sizeinmb= totalsize / (1024*1024);
-	printf("\tThroughput for %d Bytes is :\t%lfMBps \n", totalsize, totalsize/(alltime*1024*1024));
 
 	free(bookkeeping);
 	//exit
