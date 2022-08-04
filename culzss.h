@@ -48,7 +48,7 @@
 
 #ifndef CULZSS_H
 #define CULZSS_H
-
+#define PCKTSIZE 4096
 //#define LOOP 100
 //#define NUMBUF 4
 //#define BUFSIZE	134217728
@@ -64,7 +64,7 @@ typedef struct {
 	unsigned char ** bufout;
 	
 	unsigned char * in_d;	
-	unsigned char * out_d;	
+	unsigned char * out_d;
 	
 	int headPG;
 	int headGC;
@@ -83,7 +83,8 @@ typedef struct {
 //gpu functions
 extern int  compression_kernel_wrapper(unsigned char * buffer, int buf_length,unsigned char * compressed_buffer, int compression_type, int wsize, int numthre, int nstreams, int index,unsigned char * in_d,unsigned char * out_d, int interval);
 extern int  decompression_kernel_wrapper(unsigned char * buffer, int buf_length,unsigned char * decompressed_buffer, int * comp_length, int compression_type, int wsize, int numthre);
-extern int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned char * bufferout, int * comp_length, unsigned int* statisticOfMatch, double* encodeKernelTime);
+extern int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned char * bufferout, int * comp_length, unsigned int* statisticOfMatch, double* encodeKernelTime, \
+							 unsigned char* deviceInputBuffer, unsigned char* deviceOutputBuffer, int* deviceHeader, unsigned char * HostTmpBuffer);
 extern unsigned char * initGPUmem( int buf_length);
 extern unsigned char * initCPUmem( int buf_length);
 extern void deleteGPUmem(unsigned char * mem_d);

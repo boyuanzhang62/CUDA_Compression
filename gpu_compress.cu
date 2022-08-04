@@ -114,21 +114,18 @@ void printBuffer(unsigned char* arr){
 }
 void printBufferOut(unsigned char* arr){
 	printf("this is length of output buffer:\n");
-	for(int i = 0; i < 1024; i ++){
-		for(int byind = 0; byind < 16; byind ++){
-			printf("%d\t", arr[i * 16 * 2 + byind * 2]);
-		}
-		printf("\n");
-	}
-	printf("================================\n");
-	printf("this is offset of output buffer:\n");
-	for(int i = 0; i < 1024; i ++){
-		for(int byind = 0; byind < 16; byind ++){
-			printf("%d\t", arr[i * 16 + byind * 2 + 1]);
-		}
-		printf("\n");
+	for(int byind = 0; byind < 16; byind ++){
+		printf("%d\t", arr[byind * 2]);
 	}
 	printf("\n");
+	
+	printf("================================\n");
+	printf("this is offset of output buffer:\n");
+	for(int byind = 0; byind < 16; byind ++){
+		printf("%d\t", arr[byind * 2 + 1]);
+	}
+	printf("\n");
+	
 }
 
 __device__ encoded_string_t FindMatch(int windowHead, int uncodedHead, unsigned char* slidingWindow, unsigned char* uncodedLookahead, \
@@ -320,6 +317,10 @@ __global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SI
 		//write out the encoded data into output
 		out_d[bx * PCKTSIZE*2 + wfilepoint + tx*2] = encodedData[tx*2];
 		out_d[bx * PCKTSIZE*2 + wfilepoint + tx*2 + 1] = encodedData[tx*2+1];
+		for(int ti = 1; ti < interval; ti ++){
+			out_d[bx * PCKTSIZE*2 + wfilepoint + tx*2 + ti*2] = 1;
+			out_d[bx * PCKTSIZE*2 + wfilepoint + tx*2 + ti*2 + 1] = uncodedLookahead[uncodedHead + ti];
+		}
 		
 		//update written pointer and heads
 		wfilepoint = wfilepoint + MAX_CODED*2;
@@ -400,6 +401,10 @@ __global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SI
 		//write out the encoded data into output
 		out_d[bx * PCKTSIZE*2 + wfilepoint + tx*2] = encodedData[tx*2];
 		out_d[bx * PCKTSIZE*2 + wfilepoint + tx*2 + 1] = encodedData[tx*2+1];
+		for(int ti = 1; ti < interval; ti ++){
+			out_d[bx * PCKTSIZE*2 + wfilepoint + tx*2 + ti*2] = 1;
+			out_d[bx * PCKTSIZE*2 + wfilepoint + tx*2 + ti*2 + 1] = uncodedLookahead[uncodedHead + ti];
+		}
 		
 		//update written pointer and heads
 		wfilepoint = wfilepoint + MAX_CODED*2;
@@ -511,13 +516,13 @@ int compression_kernel_wrapper(unsigned char *buffer, int buf_length, unsigned c
 		checkCUDAError("kernel invocation");   // Check for any CUDA errors
 	}
 	cudaEventRecord (stop, streams[index*instreams+instreams-1]);
-	//copy memory back
-	for(i = 0; i < instreams; i++)
-	{	
-		cudaMemcpyAsync(bufferout + 2 * i * (buf_length / instreams), out_d + 2 * i * (buf_length / instreams),\
-						sizeof(char)*(buf_length / instreams)*2, cudaMemcpyDeviceToHost, streams[index*instreams + i]);
-		checkCUDAError("mem copy back");
-	}
+	// //copy memory back
+	// for(i = 0; i < instreams; i++)
+	// {	
+	// 	cudaMemcpyAsync(bufferout + 2 * i * (buf_length / instreams), out_d + 2 * i * (buf_length / instreams),\
+	// 					sizeof(char)*(buf_length / instreams)*2, cudaMemcpyDeviceToHost, streams[index*instreams + i]);
+	// 	checkCUDAError("mem copy back");
+	// }
 	cudaEventSynchronize(stop);
 	float milliseconds = 0;
 	cudaEventElapsedTime(&milliseconds, start, stop);
@@ -740,14 +745,14 @@ int callAfterCompressionKernel(unsigned char *buffer, int buf_length, unsigned c
 
 	cudaFuncSetCacheConfig(EncodeKernel, cudaFuncCachePreferL1);//cudaFuncCachePreferShared);
 
-	for(i = 0; i < instreams; i++)
-	{
-		//copy memory to cuda device
-		cudaMemcpyAsync(out_d + 2 * i * (buf_length / instreams), bufferout + 2 * i * (buf_length / instreams), \
-						sizeof(char)*(buf_length / instreams)*2, cudaMemcpyHostToDevice, streams[index*instreams + i]);
-		checkCUDAError("mem copy to gpu");
+	// for(i = 0; i < instreams; i++)
+	// {
+	// 	//copy memory to cuda device
+	// 	cudaMemcpyAsync(out_d + 2 * i * (buf_length / instreams), bufferout + 2 * i * (buf_length / instreams), \
+	// 					sizeof(char)*(buf_length / instreams)*2, cudaMemcpyHostToDevice, streams[index*instreams + i]);
+	// 	checkCUDAError("mem copy to gpu");
 		
-	}
+	// }
 	cudaEventRecord (start, streams[index*instreams]);
     for(i = 0; i < instreams; i++)
 	{
@@ -761,10 +766,10 @@ int callAfterCompressionKernel(unsigned char *buffer, int buf_length, unsigned c
 	{	
 		cudaMemcpyAsync(buffer+ 2 * i * (buf_length / instreams), in_d+ 2 * i * (buf_length / instreams), \
 						sizeof(char)*(buf_length / instreams)*2,cudaMemcpyDeviceToHost, streams[index*instreams + i]);
-		checkCUDAError("mem copy back");
+		checkCUDAError("mem copy back1");
 		cudaMemcpyAsync(hostHeader+ i * (buf_length / (PCKTSIZE * instreams)), deviceHeader+ i * (buf_length / (PCKTSIZE * instreams)), \
 						sizeof(int)*(buf_length / (PCKTSIZE * instreams)),cudaMemcpyDeviceToHost, streams[index*instreams + i]);
-		checkCUDAError("mem copy back");
+		checkCUDAError("mem copy back2");
 	}
 	cudaEventSynchronize(stop);
 	float milliseconds = 0;
@@ -777,9 +782,9 @@ int callAfterCompressionKernel(unsigned char *buffer, int buf_length, unsigned c
 }
 
 
-int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned char * bufferout, int * comp_length, unsigned int* statisticOfMatch, double* encodeKernelTime)
+int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned char * bufferout, int * comp_length, unsigned int* statisticOfMatch, double* encodeKernelTime, \
+							 unsigned char* deviceInputBuffer, unsigned char* deviceOutputBuffer, int* deviceHeader, unsigned char * HostTmpBuffer)
 {
-		
 	int comptookmore = 0;
 
 	//struct timeval t1_start,t1_end;
@@ -793,15 +798,6 @@ int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned ch
 
 	// pthread_t afcomp[NWORKERS];
 	aftercompdata_t data[NWORKERS];
-
-	// initialization of memory used for gpu encode kernel
-	unsigned char* deviceInputBuffer = initGPUmem((int)buf_length * 2);
-	unsigned char* deviceOutputBuffer = initGPUmem((int)buf_length * 2);
-	int* deviceHeader;
-	cudaMalloc((void **)&deviceHeader, sizeof(int) * (buf_length/PCKTSIZE));
-	checkCUDAError("function, deviceHeader, mem alloc to gpu");
-	unsigned char * HostTmpBuffer = (unsigned char *)malloc (sizeof(unsigned char)*buf_length*2);
-	if (HostTmpBuffer == NULL) {printf ("Memory error, HostTmpBuffer"); exit (2);}
 
 	int l=0;
 	

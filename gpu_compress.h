@@ -121,7 +121,8 @@ struct thread_data{
 
 extern "C" int  compression_kernel_wrapper(unsigned char *buffer, int buf_length,unsigned char * compressed_buffer, int compression_type, int wsize, int numthre, int nstreams, int index,unsigned char * in_d,unsigned char * out_d, int interval);
 extern "C" void  decompression_kernel_wrapper(unsigned char *buffer, int buf_length, int * comp_length, int compression_type, int wsize, int numthre,int index);
-extern "C" int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned char * bufferout, int * comp_length, unsigned int* statisticOfMatch, double* encodeKernelTime);
+extern "C" int aftercompression_wrapper(unsigned char * buffer, int buf_length, unsigned char * bufferout, int * comp_length, unsigned int* statisticOfMatch, double* encodeKernelTime, \
+							 unsigned char* deviceInputBuffer, unsigned char* deviceOutputBuffer, int* deviceHeader, unsigned char * HostTmpBuffer);
 extern "C" unsigned char * initGPUmem( int buf_length);
 extern "C" unsigned char * initCPUmem( int buf_length);
 extern "C" void deleteGPUmem(unsigned char * mem_d);

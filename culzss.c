@@ -53,6 +53,8 @@
 #include "culzss.h"
 #include <sys/time.h>
 #include <string.h>
+#include <assert.h>
+#include <cuda.h>
 
 pthread_t congpu, constr, concpu, consend;
 
@@ -64,6 +66,7 @@ char * outputfilename;
 unsigned int * bookkeeping;
 
 int exit_signal = 0;
+extern int intervalSize;
 
 void printBuffer(unsigned char* arr){
 	printf("this is front 16 values of input buffer:\n");
@@ -104,12 +107,12 @@ void *gpu_consumer (void *q)
 	queue *fifo;
 	int i, d;
 	int success=0;
-	int interval = 2;
+	int interval = intervalSize;
 	fifo = (queue *)q;
 	int comp_length=0;
 	gpuAllTime = 0;
-	fifo->in_d = initGPUmem((int)blocksize);
-	fifo->out_d = initGPUmem((int)blocksize*2);
+	fifo->in_d = initGPUmem((int)blocksize*2 * maxiterations);
+	fifo->out_d = initGPUmem((int)blocksize*2 * maxiterations);
 
 	unsigned int statisticOfMatch[256] = {0};
 	
@@ -132,7 +135,7 @@ void *gpu_consumer (void *q)
 		gettimeofday(&t2_start,0);	
 		
 		success=compression_kernel_wrapper(fifo->buf[fifo->headGC], blocksize, fifo->bufout[fifo->headGC], 
-										0, 0, 256, 0,fifo->headGC, fifo->in_d, fifo->out_d, interval);
+										0, 0, 256, 0,fifo->headGC, fifo->in_d + i * blocksize * 2, fifo->out_d + i * blocksize * 2, interval);
 		if(!success){
 			printf("Compression failed. Success %d\n",success);
 		}
@@ -140,15 +143,6 @@ void *gpu_consumer (void *q)
 		// printBuffer(fifo->buf[fifo->headGC]);
 		// printBufferOut(fifo->bufout[fifo->headGC]);
 		gettimeofday(&t2_end,0);
-
-		for(int byind = 0; byind < blocksize; byind ++){
-			
-			if(byind % interval != 0){
-				fifo->bufout[fifo->headGC][byind * 2] = 1;
-				fifo->bufout[fifo->headGC][byind * 2 + 1] = fifo->buf[fifo->headGC][byind];
-			}
-			statisticOfMatch[fifo->bufout[fifo->headGC][byind * 2]] += 1;
-		}
 		
 		time_d = (t2_end.tv_sec-t2_start.tv_sec) + (t2_end.tv_usec - t2_start.tv_usec)/1000000.0;
 		// printf("GPU kernel took:\t%f \t", time_d);
@@ -169,8 +163,6 @@ void *gpu_consumer (void *q)
 		// printf("GPU whole took:\t%f \n", alltime);
 	}
 	printf("GPU kernel took:\t%f \t\n", gpuAllTime);
-	deleteGPUmem(fifo->in_d);
-	deleteGPUmem(fifo->out_d);
 	// printStatistics(statisticOfMatch, 256);
 	return (NULL);
 }
@@ -191,6 +183,9 @@ void *cpu_consumer (void *q)
 	bckpbuf = (unsigned char *)malloc(sizeof(unsigned char)*blocksize);
 	unsigned int statisticOfMatch[256] = {0};
     double encodeKernelTime = 0;
+
+	int* deviceHeader = initGPUmem(sizeof(int) * (blocksize/PCKTSIZE));
+	unsigned char * HostTmpBuffer = (unsigned char *)initCPUmem(sizeof(unsigned char)*blocksize*2);
 	
 	for (i = 0; i < maxiterations; i++) {
 
@@ -214,7 +209,8 @@ void *cpu_consumer (void *q)
 
 
 		memcpy (bckpbuf, fifo->buf[fifo->headCS], blocksize);
-		success=aftercompression_wrapper(fifo->buf[fifo->headCS], blocksize, fifo->bufout[fifo->headCS], &comp_length, statisticOfMatch, &encodeKernelTime);
+		success=aftercompression_wrapper(fifo->buf[fifo->headCS], blocksize, fifo->bufout[fifo->headCS], &comp_length, statisticOfMatch, &encodeKernelTime, \
+										 fifo->in_d + i * blocksize * 2, fifo->out_d + i * blocksize * 2, deviceHeader, HostTmpBuffer);
 		if(!success){
 			printf("After Compression failed. Success %d return size %d\n",success,comp_length);
 			fifo->outsize[fifo->headCS] = 0;
@@ -239,7 +235,10 @@ void *cpu_consumer (void *q)
 		gettimeofday(&t1_end,0);
 		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
 	}
-	// printStatistics(statisticOfMatch, 256);
+	deleteGPUmem(fifo->in_d);
+	deleteGPUmem(fifo->out_d);
+	deleteGPUmem(deviceHeader);
+	free(HostTmpBuffer);
     printf("encode kernel took: %lf milliseconds\n", encodeKernelTime);
 	return (NULL);
 }

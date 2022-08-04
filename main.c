@@ -75,6 +75,7 @@ int totalsize=0;
 unsigned int * bookkeeping;
 int decomp=0;
 int buffersize =0;
+int intervalSize = 1;
 
 // Define the function to be called when ctrl-c (SIGINT) signal is sent to process
 void signal_callback_handler(int signum)
@@ -157,7 +158,7 @@ int main (int argc, char* argv[])
 	maxiters = 0;
 	
 	/* parse command line */
-	while ((opt = getopt(argc, argv, "i:o:d:h:")) != -1)
+	while ((opt = getopt(argc, argv, "i:o:d:h:t:")) != -1)
     {
       switch(opt)
         {
@@ -179,9 +180,9 @@ int main (int argc, char* argv[])
                 printf(" Usage for decompression: ./main -d 1 -i {inputfile} -o {outputfile}\n");
                 return;
 				
-		// case 'b':       /* buf size */
-                // buffersize = atoi(optarg);
-                // break;				
+		case 't':       /* buf size */
+                intervalSize = atoi(optarg);
+                break;				
         }
     }
     FILE *filein;//, *outFile, *decFile;  /* input & output files */
