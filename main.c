@@ -75,6 +75,7 @@ int totalsize=0;
 unsigned int * bookkeeping;
 int decomp=0;
 int buffersize =0;
+int intervalSize = 1;
 
 // Define the function to be called when ctrl-c (SIGINT) signal is sent to process
 void signal_callback_handler(int signum)
@@ -116,7 +117,7 @@ void *producer (void *q)
 		pthread_mutex_lock (fifo->mut);
 		while (fifo->ledger[fifo->headPG]!=0) {
 			//printf ("producer: queue FULL.\n");
-			pthread_cond_wait (fifo->sent, fifo->mut);
+			pthread_cond_wait (fifo->compressed, fifo->mut);
 		}
 		
 		int result = fread (fifo->buf[fifo->headPG],1,blsize,inFile);
@@ -157,7 +158,7 @@ int main (int argc, char* argv[])
 	maxiters = 0;
 	
 	/* parse command line */
-	while ((opt = getopt(argc, argv, "i:o:d:h:")) != -1)
+	while ((opt = getopt(argc, argv, "i:o:d:h:t:")) != -1)
     {
       switch(opt)
         {
@@ -179,9 +180,9 @@ int main (int argc, char* argv[])
                 printf(" Usage for decompression: ./main -d 1 -i {inputfile} -o {outputfile}\n");
                 return;
 				
-		// case 'b':       /* buf size */
-                // buffersize = atoi(optarg);
-                // break;				
+		case 't':       /* buf size */
+                intervalSize = atoi(optarg);
+                break;				
         }
     }
     FILE *filein;//, *outFile, *decFile;  /* input & output files */
@@ -267,11 +268,11 @@ int main (int argc, char* argv[])
 	pthread_join (pro, NULL);
 	queueDelete (fifo);
 
-	gettimeofday(&tall_end,0);
-	alltime = (tall_end.tv_sec-tall_start.tv_sec) + (tall_end.tv_usec - tall_start.tv_usec)/1000000.0;
-	printf("\tAll the time took:\t%f \n", alltime);
-	int sizeinmb= totalsize / (1024*1024);
-	printf("\tThroughput for %d Bytes is :\t%lfMBps \n", totalsize, totalsize/(alltime*1024*1024));
+	// gettimeofday(&tall_end,0);
+	// alltime = (tall_end.tv_sec-tall_start.tv_sec) + (tall_end.tv_usec - tall_start.tv_usec)/1000000.0;
+	// printf("\tAll the time took:\t%f \n", alltime);
+	// int sizeinmb= totalsize / (1024*1024);
+	// printf("\tThroughput for %d Bytes is :\t%lfMBps \n", totalsize, totalsize/(alltime*1024*1024));
 
 	free(bookkeeping);
 	//exit

@@ -64,6 +64,10 @@ char * outputfilename;
 unsigned int * bookkeeping;
 
 int exit_signal = 0;
+int* comp_lengthArr;
+int* successArr;
+unsigned char* tmpBuffer;
+extern int intervalSize;
 
 void printBuffer(unsigned char* arr){
 	printf("this is front 16 values of input buffer:\n");
@@ -97,21 +101,14 @@ void printStatistics(unsigned int* statisticOfMatch, int size){
 
 void *gpu_consumer (void *q)
 {
-
-	struct timeval t1_start,t1_end,t2_start,t2_end;
-	double time_d, alltime, gpuAllTime;
-
 	queue *fifo;
 	int i, d;
 	int success=0;
-	int interval = 2;
+	int interval = intervalSize;
 	fifo = (queue *)q;
-	int comp_length=0;
-	gpuAllTime = 0;
-	fifo->in_d = initGPUmem((int)blocksize);
-	fifo->out_d = initGPUmem((int)blocksize*2);
-
-	unsigned int statisticOfMatch[256] = {0};
+	double encodeKernelTime = 0;
+	fifo->in_d = initGPUmem((int)blocksize*2 * maxiterations);
+	fifo->out_d = initGPUmem((int)blocksize*2 * maxiterations);
 	
 	for (i = 0; i < maxiterations; i++) {
 		
@@ -119,8 +116,6 @@ void *gpu_consumer (void *q)
 			exit_signal++;
 			break;
 		}
-		
-		gettimeofday(&t1_start,0);	
 	
 		pthread_mutex_lock (fifo->mut);
 		while (fifo->ledger[fifo->headGC]!=1) 
@@ -129,31 +124,12 @@ void *gpu_consumer (void *q)
 			pthread_cond_wait (fifo->produced, fifo->mut);
 		}
 		pthread_mutex_unlock (fifo->mut);
-		gettimeofday(&t2_start,0);	
 		
 		success=compression_kernel_wrapper(fifo->buf[fifo->headGC], blocksize, fifo->bufout[fifo->headGC], 
-										0, 0, 256, 0,fifo->headGC, fifo->in_d, fifo->out_d, interval);
+										0, 0, 256, 0,fifo->headGC, fifo->in_d + i * maxiterations * 2, fifo->out_d + i * maxiterations * 2, interval);
 		if(!success){
 			printf("Compression failed. Success %d\n",success);
 		}
-		cudaDeviceSynchronize();
-		// printBuffer(fifo->buf[fifo->headGC]);
-		// printBufferOut(fifo->bufout[fifo->headGC]);
-		gettimeofday(&t2_end,0);
-
-		for(int byind = 0; byind < blocksize; byind ++){
-			
-			if(byind % interval != 0){
-				fifo->bufout[fifo->headGC][byind * 2] = 1;
-				fifo->bufout[fifo->headGC][byind * 2 + 1] = fifo->buf[fifo->headGC][byind];
-			}
-			statisticOfMatch[fifo->bufout[fifo->headGC][byind * 2]] += 1;
-		}
-		
-		time_d = (t2_end.tv_sec-t2_start.tv_sec) + (t2_end.tv_usec - t2_start.tv_usec)/1000000.0;
-		// printf("GPU kernel took:\t%f \t", time_d);
-		gpuAllTime += time_d;
-				
 		pthread_mutex_lock (fifo->mut);
 		fifo->ledger[fifo->headGC]++;
 		fifo->headGC++;
@@ -161,88 +137,94 @@ void *gpu_consumer (void *q)
 			fifo->headGC = 0;
 
 		pthread_mutex_unlock (fifo->mut);
-		
 		pthread_cond_signal (fifo->compressed);
-		
-		gettimeofday(&t1_end,0);
-		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
-		// printf("GPU whole took:\t%f \n", alltime);
 	}
-	printf("GPU kernel took:\t%f \t\n", gpuAllTime);
+	cudaDeviceSynchronize();
+
+	
+	tmpBuffer = (unsigned char *)initCPUmem(blocksize * maxiterations);
+	comp_lengthArr = (int*)malloc(sizeof(int) * maxiterations);
+	successArr = (int*)malloc(sizeof(int) * maxiterations);
+	for(int ii = 0; ii < maxiterations; ii ++){
+		successArr[ii] = 1;
+		comp_lengthArr[ii] = 0;
+	}
+	aftercompression_wrapper(tmpBuffer, blocksize, maxiterations, fifo->in_d, fifo->out_d, &encodeKernelTime);
+	cudaDeviceSynchronize();
+
 	deleteGPUmem(fifo->in_d);
 	deleteGPUmem(fifo->out_d);
-	// printStatistics(statisticOfMatch, 256);
 	return (NULL);
 }
 
 
-void *cpu_consumer (void *q)
-{
+// void *cpu_consumer (void *q)
+// {
 
-	struct timeval t1_start,t1_end,t2_start,t2_end;
-	double time_d, alltime;
+// 	struct timeval t1_start,t1_end,t2_start,t2_end;
+// 	double time_d, alltime;
 
-	int i;
-	int success=0;
-	queue *fifo;	
-	fifo = (queue *)q;
-	int comp_length=0;
-	unsigned char * bckpbuf;
-	bckpbuf = (unsigned char *)malloc(sizeof(unsigned char)*blocksize);
-	unsigned int statisticOfMatch[256] = {0};
-    double encodeKernelTime = 0;
+// 	int i;
+// 	int success=0;
+// 	queue *fifo;	
+// 	fifo = (queue *)q;
+// 	int comp_length=0;
+// 	unsigned char * bckpbuf;
+// 	bckpbuf = (unsigned char *)malloc(sizeof(unsigned char)*blocksize);
+// 	unsigned int statisticOfMatch[256] = {0};
+//     double encodeKernelTime = 0;
 	
-	for (i = 0; i < maxiterations; i++) {
+// 	for (i = 0; i < maxiterations; i++) {
 
-		if(exit_signal){
-			exit_signal++;
-			break;
-		}
-		gettimeofday(&t1_start,0);	
+// 		if(exit_signal){
+// 			exit_signal++;
+// 			break;
+// 		}
+// 		gettimeofday(&t1_start,0);	
 
-		pthread_mutex_lock (fifo->mut);
-		while (fifo->ledger[fifo->headCS]!=2) {
-			//printf ("cpu consumer: queue EMPTY.\n");
-			pthread_mutex_unlock (fifo->mut);
-			pthread_mutex_lock (fifo->mut);
-		}
-		pthread_mutex_unlock (fifo->mut);
+// 		pthread_mutex_lock (fifo->mut);
+// 		while (fifo->ledger[fifo->headCS]!=2) {
+// 			//printf ("cpu consumer: queue EMPTY.\n");
+// 			pthread_mutex_unlock (fifo->mut);
+// 			pthread_mutex_lock (fifo->mut);
+// 		}
+// 		pthread_mutex_unlock (fifo->mut);
 	
-		onestream_finish_GPU(fifo->headCS);
+// 		onestream_finish_GPU(fifo->headCS);
 
-		gettimeofday(&t2_start,0);	
+// 		gettimeofday(&t2_start,0);	
 
 
-		memcpy (bckpbuf, fifo->buf[fifo->headCS], blocksize);
-		success=aftercompression_wrapper(fifo->buf[fifo->headCS], blocksize, fifo->bufout[fifo->headCS], &comp_length, statisticOfMatch, &encodeKernelTime);
-		if(!success){
-			printf("After Compression failed. Success %d return size %d\n",success,comp_length);
-			fifo->outsize[fifo->headCS] = 0;
-			memcpy (fifo->buf[fifo->headCS],bckpbuf,  blocksize);
-		}	
-		else
-			fifo->outsize[fifo->headCS] = comp_length;
+// 		memcpy (bckpbuf, tmpBuffer + i * blocksize, blocksize);
+// 		success=successArr[i];
+// 		if(!success){
+// 			printf("After Compression failed. Success %d return size %d\n",success,comp_lengthArr[i]);
+// 			fifo->outsize[fifo->headCS] = 0;
+// 			memcpy (tmpBuffer + i * blocksize, bckpbuf,  blocksize);
+// 		}	
+// 		else
+// 			fifo->outsize[fifo->headCS] = comp_lengthArr[i];
 		
 
-		gettimeofday(&t2_end,0);
-		time_d = (t2_end.tv_sec-t2_start.tv_sec) + (t2_end.tv_usec - t2_start.tv_usec)/1000000.0;
+// 		gettimeofday(&t2_end,0);
+// 		time_d = (t2_end.tv_sec-t2_start.tv_sec) + (t2_end.tv_usec - t2_start.tv_usec)/1000000.0;
 		
-		pthread_mutex_lock (fifo->mut);
-		fifo->ledger[fifo->headCS]++;//=0;
-		fifo->headCS++;
-		if (fifo->headCS == numblocks)
-			fifo->headCS = 0;
+// 		pthread_mutex_lock (fifo->mut);
+// 		fifo->ledger[fifo->headCS]++;//=0;
+// 		fifo->headCS++;
+// 		if (fifo->headCS == numblocks)
+// 			fifo->headCS = 0;
 
-		pthread_mutex_unlock (fifo->mut);
+// 		pthread_mutex_unlock (fifo->mut);
 		
-		pthread_cond_signal (fifo->sendready);
-		gettimeofday(&t1_end,0);
-		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
-	}
-	// printStatistics(statisticOfMatch, 256);
-    printf("encode kernel took: %lf milliseconds\n", encodeKernelTime);
-	return (NULL);
-}
+// 		pthread_cond_signal (fifo->sendready);
+// 		gettimeofday(&t1_end,0);
+// 		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
+// 	}
+// 	// printStatistics(statisticOfMatch, 256);
+//     printf("encode kernel took: %lf milliseconds\n", encodeKernelTime);
+// 	return (NULL);
+// }
 
 void *cpu_sender (void *q)
 {
@@ -271,21 +253,21 @@ void *cpu_sender (void *q)
 		gettimeofday(&t1_start,0);	
 
 		pthread_mutex_lock (fifo->mut);
-		while (fifo->ledger[fifo->headSP]!=3) {
-			//printf ("cpu_sender: queue EMPTY.\n");
-			pthread_cond_wait (fifo->sendready, fifo->mut);
-		}
+		// while (fifo->ledger[fifo->headSP]!=3) {
+		// 	//printf ("cpu_sender: queue EMPTY.\n");
+		// 	pthread_cond_wait (fifo->sendready, fifo->mut);
+		// }
 		pthread_mutex_unlock (fifo->mut);
 		
 			
 		pthread_mutex_lock (fifo->mut);
 
-		size = fifo->outsize[fifo->headSP];
+		size = comp_lengthArr[i];
 		if(size == 0)
 			size = blocksize;
 		bookkeeping[i + 2] = size + ((i==0)?0:bookkeeping[i+1]);
 
-		fwrite(fifo->buf[fifo->headSP], size, 1, outFile);
+		fwrite(tmpBuffer + i * blocksize, size, 1, outFile);
 		
 		//gettimeofday(&t2_end,0);
 		//time_d = (t2_end.tv_sec-t2_start.tv_sec) + (t2_end.tv_usec - t2_start.tv_usec)/1000000.0;
@@ -445,7 +427,8 @@ void  init_compression(queue * fifo,int maxit,int numb,int bsize, char * filenam
 	initGPU();
 	//create consumer threades
 	pthread_create (&congpu, NULL, gpu_consumer, fifo);
-	pthread_create (&concpu, NULL, cpu_consumer, fifo);
+	// pthread_create (&concpu, NULL, cpu_consumer, fifo);
+	pthread_join (congpu, NULL);
 	pthread_create (&consend, NULL, cpu_sender, fifo);
 	
 	
@@ -456,7 +439,7 @@ void  init_compression(queue * fifo,int maxit,int numb,int bsize, char * filenam
 void join_comp_threads()
 {	
 	pthread_join (congpu, NULL);
-	pthread_join (concpu, NULL);
+	// pthread_join (concpu, NULL);
 	pthread_join (consend, NULL);
 	exit_signal = 3;
 }
