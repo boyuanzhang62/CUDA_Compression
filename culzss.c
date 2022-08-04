@@ -115,6 +115,7 @@ void *gpu_consumer (void *q)
 	fifo->out_d = initGPUmem((int)blocksize*2 * maxiterations);
 
 	unsigned int statisticOfMatch[256] = {0};
+	double matchingTime;
 	
 	for (i = 0; i < maxiterations; i++) {
 		
@@ -135,7 +136,7 @@ void *gpu_consumer (void *q)
 		gettimeofday(&t2_start,0);	
 		
 		success=compression_kernel_wrapper(fifo->buf[fifo->headGC], blocksize, fifo->bufout[fifo->headGC], 
-										0, 0, 256, 0,fifo->headGC, fifo->in_d + i * blocksize * 2, fifo->out_d + i * blocksize * 2, interval);
+										0, 0, 256, 0,fifo->headGC, fifo->in_d + i * blocksize * 2, fifo->out_d + i * blocksize * 2, interval, &matchingTime);
 		if(!success){
 			printf("Compression failed. Success %d\n",success);
 		}
@@ -162,7 +163,7 @@ void *gpu_consumer (void *q)
 		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
 		// printf("GPU whole took:\t%f \n", alltime);
 	}
-	printf("GPU kernel took:\t%f \t\n", gpuAllTime);
+	printf("matching kernel time: %lf\n", matchingTime);
 	// printStatistics(statisticOfMatch, 256);
 	return (NULL);
 }
@@ -239,7 +240,7 @@ void *cpu_consumer (void *q)
 	deleteGPUmem(fifo->out_d);
 	deleteGPUmem(deviceHeader);
 	deleteCPUmem(HostTmpBuffer);
-    printf("encode kernel took: %lf milliseconds\n", encodeKernelTime);
+    printf("encoding kernel time: %lf\n", encodeKernelTime);
 	return (NULL);
 }
 
@@ -344,7 +345,7 @@ queue *queueInit (int maxit,int numb,int bsize)
 	for (i = 0; i < (numblocks); i++) {
 		//buffer[i] = (unsigned char *)malloc(blocksize * sizeof(unsigned char));
 		buffer[i] = (unsigned char *)initCPUmem(blocksize * sizeof(unsigned char));
-		printf("blocksize: %d\n", blocksize);
+		// printf("blocksize: %d\n", blocksize);
 		if (buffer[i] == NULL) {printf ("Memory error, buffer"); exit (2);}
 	}
 	for (i = 0; i < (numblocks); i++) {
@@ -440,7 +441,7 @@ void  init_compression(queue * fifo,int maxit,int numb,int bsize, char * filenam
 	blocksize=bsize;
 	outputfilename = filename;
 	bookkeeping = book;
-	printf("Initializing the GPU\n");
+	// printf("Initializing the GPU\n");
 	initGPU();
 	//create consumer threades
 	pthread_create (&congpu, NULL, gpu_consumer, fifo);
