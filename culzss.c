@@ -104,17 +104,19 @@ void *gpu_consumer (void *q)
 	int interval = intervalSize;
 	fifo = (queue *)q;
 	int comp_length=0;
+	double matchingTime = 0;
 	fifo->in_d = initGPUmem((int)blocksize*2 * maxiterations);
 	fifo->out_d = initGPUmem((int)blocksize*2 * maxiterations);
 	
 	for (i = 0; i < maxiterations; i++) {
 		success=compression_kernel_wrapper(fifo->encodedHostMemory + i * 2 * blocksize, blocksize, fifo->bufout[fifo->headGC], 
-										0, 0, 256, 0,fifo->headGC, fifo->in_d + i * blocksize * 2, fifo->out_d + i * blocksize * 2, interval);
+										0, 0, 256, 0,fifo->headGC, fifo->in_d + i * blocksize * 2, fifo->out_d + i * blocksize * 2, interval, &matchingTime);
 		if(!success){
 			printf("Compression failed. Success %d\n",success);
 		}
 		cudaDeviceSynchronize();
 	}
+	printf("matching kernel time: %lf\n", matchingTime);
 	return (NULL);
 }
 
@@ -141,7 +143,7 @@ void *cpu_consumer (void *q)
 	aftercompression_wrapper(fifo->in_d, fifo->out_d, fifo->encodedHostMemory, fifo->encodedHostSize, \
 							 fifo->deviceHeader, fifo->hostHeader, blocksize, maxiterations, &encodeKernelTime, blocksize);
 
-    printf("encode kernel took: %lf milliseconds\n", encodeKernelTime);
+    printf("encode kernel time: %lf\n", encodeKernelTime);
 	deleteGPUmem(fifo->in_d);
 	deleteGPUmem(fifo->out_d);
 	deleteGPUmem(fifo->deviceHeader);

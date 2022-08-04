@@ -119,7 +119,7 @@ struct thread_data{
 *                                FUNCTIONS
 ***************************************************************************/
 
-extern "C" int  compression_kernel_wrapper(unsigned char *buffer, int buf_length,unsigned char * compressed_buffer, int compression_type, int wsize, int numthre, int nstreams, int index,unsigned char * in_d,unsigned char * out_d, int interval);
+extern "C" int  compression_kernel_wrapper(unsigned char *buffer, int buf_length,unsigned char * compressed_buffer, int compression_type, int wsize, int numthre, int nstreams, int index,unsigned char * in_d,unsigned char * out_d, int interval, double * matchingTime);
 extern "C" void  decompression_kernel_wrapper(unsigned char *buffer, int buf_length, int * comp_length, int compression_type, int wsize, int numthre,int index);
 extern "C" int aftercompression_wrapper(unsigned char * deviceBuffer, unsigned char * deviceBufferout, unsigned char * encodedHostMemory, int * encodedHostSize, int * deviceHeader, int * hostHeader, int blockSize, int maxIteration, double * encodingKernelTime, int buf_length);
 extern "C" unsigned char * initGPUmem( int buf_length);

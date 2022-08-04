@@ -492,7 +492,7 @@ int onestream_finish_GPU(int index)
 }
 
 int compression_kernel_wrapper(unsigned char *buffer, int buf_length, unsigned char * bufferout, int compression_type,int wsize,\
-								int numthre, int noop,int index,unsigned char * in_d,unsigned char * out_d, int interval)
+								int numthre, int noop,int index,unsigned char * in_d,unsigned char * out_d, int interval, double * matchingTime)
 {
 	cudaEvent_t start, stop;
 	cudaEventCreate(&start);
@@ -522,6 +522,7 @@ int compression_kernel_wrapper(unsigned char *buffer, int buf_length, unsigned c
 	cudaEventSynchronize(stop);
 	float milliseconds = 0;
 	cudaEventElapsedTime(&milliseconds, start, stop);
+	*matchingTime += milliseconds;
 	// printf("the cuda event gpu kernel time is: %f\n", milliseconds);
 	return 1;
 }

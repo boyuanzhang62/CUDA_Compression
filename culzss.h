@@ -87,7 +87,7 @@ typedef struct {
 
 
 //gpu functions
-extern int  compression_kernel_wrapper(unsigned char * buffer, int buf_length,unsigned char * compressed_buffer, int compression_type, int wsize, int numthre, int nstreams, int index,unsigned char * in_d,unsigned char * out_d, int interval);
+extern int  compression_kernel_wrapper(unsigned char * buffer, int buf_length,unsigned char * compressed_buffer, int compression_type, int wsize, int numthre, int nstreams, int index,unsigned char * in_d,unsigned char * out_d, int interval, double * matchingTime);
 extern int  decompression_kernel_wrapper(unsigned char * buffer, int buf_length,unsigned char * decompressed_buffer, int * comp_length, int compression_type, int wsize, int numthre);
 extern int aftercompression_wrapper(unsigned char * deviceBuffer, unsigned char * deviceBufferout, unsigned char * encodedHostMemory, int * encodedHostSize, int * deviceHeader, int * hostHeader, int blockSize, int maxIteration, double * encodingKernelTime, int buf_length);
 extern unsigned char * initGPUmem( int buf_length);
