@@ -320,6 +320,10 @@ __global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SI
 		//write out the encoded data into output
 		out_d[bx * PCKTSIZE*2 + wfilepoint + tx*2] = encodedData[tx*2];
 		out_d[bx * PCKTSIZE*2 + wfilepoint + tx*2 + 1] = encodedData[tx*2+1];
+		for(int ti = 1; ti < interval; ti ++){
+			out_d[bx * PCKTSIZE*2 + wfilepoint + tx*2 + ti*2] = 1;
+			out_d[bx * PCKTSIZE*2 + wfilepoint + tx*2 + ti*2 + 1] = uncodedLookahead[uncodedHead + ti];
+		}
 		
 		//update written pointer and heads
 		wfilepoint = wfilepoint + MAX_CODED*2;
@@ -400,6 +404,10 @@ __global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SI
 		//write out the encoded data into output
 		out_d[bx * PCKTSIZE*2 + wfilepoint + tx*2] = encodedData[tx*2];
 		out_d[bx * PCKTSIZE*2 + wfilepoint + tx*2 + 1] = encodedData[tx*2+1];
+		for(int ti = 1; ti < interval; ti ++){
+			out_d[bx * PCKTSIZE*2 + wfilepoint + tx*2 + ti*2] = 1;
+			out_d[bx * PCKTSIZE*2 + wfilepoint + tx*2 + ti*2 + 1] = uncodedLookahead[uncodedHead + ti];
+		}
 		
 		//update written pointer and heads
 		wfilepoint = wfilepoint + MAX_CODED*2;

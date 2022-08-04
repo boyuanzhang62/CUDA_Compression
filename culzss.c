@@ -64,6 +64,7 @@ char * outputfilename;
 unsigned int * bookkeeping;
 
 int exit_signal = 0;
+extern int intervalSize;
 
 void printBuffer(unsigned char* arr){
 	printf("this is front 16 values of input buffer:\n");
@@ -104,7 +105,7 @@ void *gpu_consumer (void *q)
 	queue *fifo;
 	int i, d;
 	int success=0;
-	int interval = 2;
+	int interval = intervalSize;
 	fifo = (queue *)q;
 	int comp_length=0;
 	gpuAllTime = 0;
@@ -140,15 +141,6 @@ void *gpu_consumer (void *q)
 		// printBuffer(fifo->buf[fifo->headGC]);
 		// printBufferOut(fifo->bufout[fifo->headGC]);
 		gettimeofday(&t2_end,0);
-
-		for(int byind = 0; byind < blocksize; byind ++){
-			
-			if(byind % interval != 0){
-				fifo->bufout[fifo->headGC][byind * 2] = 1;
-				fifo->bufout[fifo->headGC][byind * 2 + 1] = fifo->buf[fifo->headGC][byind];
-			}
-			statisticOfMatch[fifo->bufout[fifo->headGC][byind * 2]] += 1;
-		}
 		
 		time_d = (t2_end.tv_sec-t2_start.tv_sec) + (t2_end.tv_usec - t2_start.tv_usec)/1000000.0;
 		// printf("GPU kernel took:\t%f \t", time_d);
