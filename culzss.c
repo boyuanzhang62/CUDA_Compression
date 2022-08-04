@@ -238,7 +238,7 @@ void *cpu_consumer (void *q)
 	deleteGPUmem(fifo->in_d);
 	deleteGPUmem(fifo->out_d);
 	deleteGPUmem(deviceHeader);
-	free(HostTmpBuffer);
+	deleteCPUmem(HostTmpBuffer);
     printf("encode kernel took: %lf milliseconds\n", encodeKernelTime);
 	return (NULL);
 }
