@@ -98,19 +98,14 @@ void printStatistics(unsigned int* statisticOfMatch, int size){
 
 void *gpu_consumer (void *q)
 {
-
-	struct timeval t1_start,t1_end,t2_start,t2_end;
-	double time_d, alltime, gpuAllTime;
-
 	queue *fifo;
 	int i, d;
 	int success=0;
 	int interval = intervalSize;
 	fifo = (queue *)q;
 	int comp_length=0;
-	gpuAllTime = 0;
-	fifo->in_d = initGPUmem((int)blocksize);
-	fifo->out_d = initGPUmem((int)blocksize*2);
+	fifo->in_d = initGPUmem((int)blocksize*2 * maxiterations);
+	fifo->out_d = initGPUmem((int)blocksize*2 * maxiterations);
 
 	unsigned int statisticOfMatch[256] = {0};
 	
@@ -120,9 +115,6 @@ void *gpu_consumer (void *q)
 			exit_signal++;
 			break;
 		}
-		
-		gettimeofday(&t1_start,0);	
-	
 		pthread_mutex_lock (fifo->mut);
 		while (fifo->ledger[fifo->headGC]!=1) 
 		{
@@ -130,21 +122,12 @@ void *gpu_consumer (void *q)
 			pthread_cond_wait (fifo->produced, fifo->mut);
 		}
 		pthread_mutex_unlock (fifo->mut);
-		gettimeofday(&t2_start,0);	
-		
 		success=compression_kernel_wrapper(fifo->buf[fifo->headGC], blocksize, fifo->bufout[fifo->headGC], 
-										0, 0, 256, 0,fifo->headGC, fifo->in_d, fifo->out_d, interval);
+										0, 0, 256, 0,fifo->headGC, fifo->in_d + i * blocksize * 2, fifo->out_d + i * blocksize * 2, interval);
 		if(!success){
 			printf("Compression failed. Success %d\n",success);
 		}
 		cudaDeviceSynchronize();
-		// printBuffer(fifo->buf[fifo->headGC]);
-		// printBufferOut(fifo->bufout[fifo->headGC]);
-		gettimeofday(&t2_end,0);
-		
-		time_d = (t2_end.tv_sec-t2_start.tv_sec) + (t2_end.tv_usec - t2_start.tv_usec)/1000000.0;
-		// printf("GPU kernel took:\t%f \t", time_d);
-		gpuAllTime += time_d;
 				
 		pthread_mutex_lock (fifo->mut);
 		fifo->ledger[fifo->headGC]++;
@@ -153,17 +136,10 @@ void *gpu_consumer (void *q)
 			fifo->headGC = 0;
 
 		pthread_mutex_unlock (fifo->mut);
-		
 		pthread_cond_signal (fifo->compressed);
-		
-		gettimeofday(&t1_end,0);
-		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
-		// printf("GPU whole took:\t%f \n", alltime);
 	}
-	printf("GPU kernel took:\t%f \t\n", gpuAllTime);
 	deleteGPUmem(fifo->in_d);
 	deleteGPUmem(fifo->out_d);
-	// printStatistics(statisticOfMatch, 256);
 	return (NULL);
 }
 
