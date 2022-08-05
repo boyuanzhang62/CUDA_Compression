@@ -200,6 +200,71 @@ __device__ encoded_string_t FindMatch(int windowHead, int uncodedHead, unsigned 
     return matchData;
 }
 
+__device__ encoded_string_t findMatchInWholeSharedMemory(int uncodedHead, unsigned char* uncodedLookahead, int tx, int bx, int lastcheck, int interval)
+{
+    encoded_string_t matchData;
+    int i, j;
+	int maxcheck;
+	int matchingState=0;
+	int loop=0;
+	
+	matchData.length = 1; // make it 1 in the 0 case, it will be returned as 1, 0 gives problems
+	matchData.offset = 1; // make it 1 in the 0 case, it will be returned as 1, 0 gives problems
+	// if(tx % interval != 0){
+	// 	return matchData;
+	// }
+    i = uncodedHead - WINDOW_SIZE;  // start at the beginning of the sliding window //
+    j = 0; //counter for matchings
+
+	maxcheck = MAX_CODED - tx * lastcheck;
+	
+	int tempi=0;
+	while (loop<WINDOW_SIZE)
+	{
+		
+		if (uncodedLookahead[i] == uncodedLookahead[uncodedHead + j])
+		{
+			j++;
+			matchingState=1;		
+		}
+		else
+		{
+			if(matchingState && j > matchData.length)
+			{
+				matchData.length = j;
+				tempi=i-j;
+				// if(tempi<0)
+				// 	tempi+=WINDOW_SIZE+MAX_CODED;
+				matchData.offset = tempi;
+			}
+			
+			j=0;
+			matchingState=0;		
+		}
+	
+		i++;
+		loop++;	
+		if (loop >= maxcheck-1)
+		{
+			/// we wrapped around ///
+			loop = WINDOW_SIZE; //break;
+		}
+	}
+	
+	if(j > matchData.length && matchingState )
+	{
+		matchData.length = j;
+		tempi=i-j;
+		// if(tempi<0)
+		// 	tempi+=WINDOW_SIZE+MAX_CODED;
+
+		matchData.offset = tempi;
+	}
+		
+	// if(matchData.length>256) printf("match length is:%d\n", matchData.length);
+    return matchData;
+}
+
 void checkCUDAError(const char *msg)
 {
  cudaError_t err = cudaGetLastError();
@@ -417,6 +482,150 @@ __global__ void EncodeKernel(unsigned char * in_d, unsigned char * out_d, int SI
 		
 }
 
+__global__ void findMatchKernel(unsigned char * in_d, unsigned char * out_d, int interval)
+{
+
+
+	/* cyclic buffer sliding window of already read characters */
+	// __shared__ unsigned char slidingWindow[WINDOW_SIZE+(MAX_CODED)];
+	__shared__ unsigned char encodedData[PCKTSIZE * 2];
+	__shared__ unsigned char uncodedLookahead[PCKTSIZE + MAX_CODED];
+	
+	
+    encoded_string_t matchData;
+
+	int uncodedHead;    // head of sliding window and lookahead //
+	int filepoint;			//file index pointer for reading
+	int wfilepoint;			//file index pointer for writing
+	int lastcheck;			//flag for last run of the packet
+	// int loadcounter=0;
+	
+	int bx = blockIdx.x;
+	int tx = threadIdx.x; 
+	int numOfThreads = blockDim.x;
+	// int tx = threadIdx.x; 
+   //***********************************************************************
+   // * Fill the sliding window buffer with some known values.  DecodeLZSS must
+   // * use the same values.  If common characters are used, there's an
+   // * increased chance of matching to the earlier strings.
+   // *********************************************************************** //
+	uncodedHead = tx * interval;	
+	filepoint=0;
+	wfilepoint=0;
+	lastcheck=0;
+	
+	__syncthreads();
+
+	// buf_size instreams(16) packet(4096) threads(128) interval
+	for(int ti = 0; ti < MAX_CODED; ti++){
+		uncodedLookahead[ti] = ' ';
+	}
+	for(int ti = 0; ti < PCKTSIZE / numOfThreads; ti++){
+		uncodedLookahead[MAX_CODED + tx * PCKTSIZE / numOfThreads + ti] = in_d[bx * PCKTSIZE + tx * PCKTSIZE / numOfThreads + ti];
+		// printf("uncodedLookahead: %d\n", uncodedLookahead[MAX_CODED + tx * PCKTSIZE / numOfThreads + ti]);
+	}
+	for(int ti = 0; ti < PCKTSIZE * 2 / numOfThreads; ti++){
+		encodedData[tx * PCKTSIZE * 2 / numOfThreads + ti] = 0;
+		// printf("encodedData: %d\n", encodedData[tx * PCKTSIZE * 2 / numOfThreads + ti]);
+	}
+	__syncthreads(); 
+
+	// Look for matching string in sliding window //	
+	matchData = findMatchInWholeSharedMemory(uncodedHead, uncodedLookahead, tx, bx, lastcheck, interval);
+	
+	filepoint+=MAX_CODED;
+	filepoint+=MAX_CODED;
+	
+	__syncthreads();  
+	
+	// now encoded the rest of the file until an EOF is read //
+	while ((filepoint) <= PCKTSIZE && !lastcheck)
+	{	
+		
+		if (matchData.length >= MAX_CODED)
+		{
+			// garbage beyond last data happened to extend match length //
+			matchData.length = MAX_CODED-1;
+		}
+
+		if (matchData.length <= MAX_UNCODED)
+		{
+			// not long enough match.  write uncoded byte //
+			matchData.length = 1;   // set to 1 for 1 byte uncoded //
+			encodedData[wfilepoint + tx*interval*2] = 1;
+			encodedData[wfilepoint + tx*interval*2 + 1] = uncodedLookahead[wfilepoint / 2 + tx*interval];
+		}
+		else if(matchData.length > MAX_UNCODED)
+		{	
+			// match length > MAX_UNCODED.  Encode as offset and length. //
+			encodedData[wfilepoint + tx*interval*2] = (unsigned char)matchData.length;
+			encodedData[wfilepoint + tx*interval*2+1] = (unsigned char)matchData.offset;		
+		}
+		for(int ti = 1; ti < interval; ti ++){
+			encodedData[wfilepoint + tx*interval*2 + ti*2] = 1;
+			encodedData[wfilepoint + tx*interval*2 + ti*2 + 1] = uncodedLookahead[wfilepoint / 2 + tx*interval + ti];
+		}
+		//update written pointer and heads
+		wfilepoint = wfilepoint + MAX_CODED*2;
+		
+		// windowHead = windowHead + MAX_CODED;
+		uncodedHead = uncodedHead + MAX_CODED;
+		
+		// __syncthreads(); 	
+
+		if(filepoint<PCKTSIZE){
+			filepoint+=MAX_CODED;
+
+		}
+		else{
+			lastcheck++;
+		}
+		matchData = findMatchInWholeSharedMemory(uncodedHead, uncodedLookahead, tx, bx, lastcheck, interval);
+		// if(matchData.length > 127)
+		// printf("matchData.length: %d\n", matchData.length);
+		
+	} //while
+	
+	if(lastcheck==1)
+	{
+		if(matchData.length > (MAX_CODED - tx))
+			matchData.length = MAX_CODED - tx;
+	}
+	
+	if (matchData.length >= MAX_CODED)
+		{
+			// garbage beyond last data happened to extend match length //
+			matchData.length = MAX_CODED-1;
+		}
+
+	if (matchData.length <= MAX_UNCODED)
+	{
+		// not long enough match.  write uncoded byte //
+		matchData.length = 1;   // set to 1 for 1 byte uncoded //
+		encodedData[wfilepoint + tx*interval*2] = 1;
+		encodedData[wfilepoint + tx*interval*2 + 1] = uncodedLookahead[uncodedHead];
+	}
+	else if(matchData.length > MAX_UNCODED)
+	{	
+		// match length > MAX_UNCODED.  Encode as offset and length. //
+		encodedData[wfilepoint + tx*interval*2] = (unsigned char)matchData.length;
+		encodedData[wfilepoint + tx*interval*2+1] = (unsigned char)matchData.offset;			
+	}
+	for(int ti = 1; ti < interval; ti ++){
+		encodedData[wfilepoint + tx*interval*2 + ti*2] = 1;
+		encodedData[wfilepoint + tx*interval*2 + ti*2 + 1] = uncodedLookahead[uncodedHead + ti];
+	}
+	__syncthreads();
+	for(int ti = 0; ti < PCKTSIZE * 2 / numOfThreads; ti++){
+		// printf("test\n");
+		out_d[bx * PCKTSIZE * 2 + tx * PCKTSIZE * 2 / numOfThreads + ti] = encodedData[tx * PCKTSIZE * 2 / numOfThreads + ti];
+		// if(ti < 10)
+		// printf("encodedData: %d\n", encodedData[tx * PCKTSIZE * 2 / numOfThreads + ti]);
+	}
+	// __syncthreads(); 
+		
+}
+
 unsigned char * initGPUmem(int buf_length)
 {
 	unsigned char * mem_d;
@@ -514,8 +723,8 @@ int compression_kernel_wrapper(unsigned char *buffer, int buf_length, unsigned c
 	cudaEventRecord (start, streams[index*instreams]);
     for(i = 0; i < instreams; i++)
 	{
-		EncodeKernel<<< numblocks, numThreads, 0, streams[index*instreams + i]>>>(in_d + i * (buf_length / instreams),\
-						out_d + 2 * i * (buf_length / instreams),numThreads, interval);
+		findMatchKernel<<< numblocks, numThreads, 0, streams[index*instreams + i]>>>(in_d + i * (buf_length / instreams),\
+						out_d + 2 * i * (buf_length / instreams), interval);
 		checkCUDAError("kernel invocation");   // Check for any CUDA errors
 	}
 	cudaEventRecord (stop, streams[index*instreams+instreams-1]);
