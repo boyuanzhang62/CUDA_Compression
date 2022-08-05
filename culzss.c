@@ -145,14 +145,14 @@ void *gpu_consumer (void *q)
 		
 		gettimeofday(&t2_end,0);
 
-		for(int byind = 0; byind < blocksize; byind ++){
+		// for(int byind = 0; byind < blocksize; byind ++){
 			
-			if(byind % interval != 0){
-				fifo->bufout[fifo->headGC][byind * 2] = 1;
-				fifo->bufout[fifo->headGC][byind * 2 + 1] = fifo->buf[fifo->headGC][byind];
-			}
-			statisticOfMatch[fifo->bufout[fifo->headGC][byind * 2]] += 1;
-		}
+		// 	if(byind % interval != 0){
+		// 		fifo->bufout[fifo->headGC][byind * 2] = 1;
+		// 		fifo->bufout[fifo->headGC][byind * 2 + 1] = fifo->buf[fifo->headGC][byind];
+		// 	}
+		// 	statisticOfMatch[fifo->bufout[fifo->headGC][byind * 2]] += 1;
+		// }
 
 		time_d = (t2_end.tv_sec-t2_start.tv_sec) + (t2_end.tv_usec - t2_start.tv_usec)/1000000.0;
 		// printf("GPU kernel took:\t%f \t", time_d);
