@@ -172,8 +172,8 @@ void *gpu_consumer (void *q)
 		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
 		// printf("GPU whole took:\t%f \n", alltime);
 	}
-	printf("Matching kernel took: %lf milliseconds\n", matchingkernelTime);
-	printf("D2H memory copy took: %lf milliseconds\n", d2hMemoryTime);
+	printf("Matching kernel took: %lf\n", matchingkernelTime);
+	printf("D2H memory copy took: %lf\n", d2hMemoryTime);
 	deleteGPUmem(fifo->in_d);
 	deleteGPUmem(fifo->out_d);
 	// printStatistics(statisticOfMatch, 256);
@@ -245,7 +245,7 @@ void *cpu_consumer (void *q)
 		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
 	}
 	// printStatistics(statisticOfMatch, 128);
-    printf("cpu encode took: %lf milliseconds\n", cpuEncodeTime * 1000);
+    printf("cpu encode took: %lf\n", cpuEncodeTime * 1000);
 	return (NULL);
 }
 
