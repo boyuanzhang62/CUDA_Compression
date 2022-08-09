@@ -172,8 +172,8 @@ void *gpu_consumer (void *q)
 		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
 		// printf("GPU whole took:\t%f \n", alltime);
 	}
-	printf("Matching kernel took: %lf milliseconds\n", matchingkernelTime);
-	printf("D2H memory copy took: %lf milliseconds\n", d2hMemoryTime);
+	printf("Matching kernel took: %lf\n", matchingkernelTime);
+	printf("D2H memory copy took: %lf\n", d2hMemoryTime);
 	deleteGPUmem(fifo->in_d);
 	deleteGPUmem(fifo->out_d);
 	// printStatistics(statisticOfMatch, 256);
@@ -245,7 +245,7 @@ void *cpu_consumer (void *q)
 		alltime = (t1_end.tv_sec-t1_start.tv_sec) + (t1_end.tv_usec - t1_start.tv_usec)/1000000.0;
 	}
 	// printStatistics(statisticOfMatch, 128);
-    printf("cpu encode took: %lf milliseconds\n", cpuEncodeTime * 1000);
+    printf("cpu encode took: %lf\n", cpuEncodeTime * 1000);
 	return (NULL);
 }
 
@@ -350,7 +350,7 @@ queue *queueInit (int maxit,int numb,int bsize)
 	for (i = 0; i < (numblocks); i++) {
 		//buffer[i] = (unsigned char *)malloc(blocksize * sizeof(unsigned char));
 		buffer[i] = (unsigned char *)initCPUmem(blocksize * sizeof(unsigned char));
-		printf("blocksize: %d\n", blocksize);
+		// printf("blocksize: %d\n", blocksize);
 		if (buffer[i] == NULL) {printf ("Memory error, buffer"); exit (2);}
 	}
 	for (i = 0; i < (numblocks); i++) {
@@ -446,7 +446,7 @@ void  init_compression(queue * fifo,int maxit,int numb,int bsize, char * filenam
 	blocksize=bsize;
 	outputfilename = filename;
 	bookkeeping = book;
-	printf("Initializing the GPU\n");
+	// printf("Initializing the GPU\n");
 	initGPU();
 	//create consumer threades
 	pthread_create (&congpu, NULL, gpu_consumer, fifo);
