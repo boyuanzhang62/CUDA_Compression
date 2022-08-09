@@ -350,7 +350,7 @@ queue *queueInit (int maxit,int numb,int bsize)
 	for (i = 0; i < (numblocks); i++) {
 		//buffer[i] = (unsigned char *)malloc(blocksize * sizeof(unsigned char));
 		buffer[i] = (unsigned char *)initCPUmem(blocksize * sizeof(unsigned char));
-		printf("blocksize: %d\n", blocksize);
+		// printf("blocksize: %d\n", blocksize);
 		if (buffer[i] == NULL) {printf ("Memory error, buffer"); exit (2);}
 	}
 	for (i = 0; i < (numblocks); i++) {
@@ -446,7 +446,7 @@ void  init_compression(queue * fifo,int maxit,int numb,int bsize, char * filenam
 	blocksize=bsize;
 	outputfilename = filename;
 	bookkeeping = book;
-	printf("Initializing the GPU\n");
+	// printf("Initializing the GPU\n");
 	initGPU();
 	//create consumer threades
 	pthread_create (&congpu, NULL, gpu_consumer, fifo);
