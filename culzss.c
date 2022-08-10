@@ -113,7 +113,7 @@ void *gpu_consumer (void *q)
 	fifo->in_d = initGPUmem((int)blocksize);
 	fifo->out_d = initGPUmem((int)blocksize*2);
 
-	unsigned int statisticOfMatch[256] = {0};
+	unsigned int statisticOfMatch[128] = {0};
     double matchingkernelTime = 0;
 	double d2hMemoryTime = 0;
 	
@@ -135,7 +135,7 @@ void *gpu_consumer (void *q)
 		pthread_mutex_unlock (fifo->mut);
 		gettimeofday(&t2_start,0);	
 		success=compression_kernel_wrapper(fifo->buf[fifo->headGC], blocksize, fifo->bufout[fifo->headGC], 
-										0, i, 256, 0,fifo->headGC, fifo->in_d, fifo->out_d, interval, &matchingkernelTime, &d2hMemoryTime);
+										0, i, 128, 0,fifo->headGC, fifo->in_d, fifo->out_d, interval, &matchingkernelTime, &d2hMemoryTime);
 		if(!success){
 			printf("Compression failed. Success %d\n",success);
 		}
@@ -176,7 +176,7 @@ void *gpu_consumer (void *q)
 	printf("D2H memory copy took: %lf\n", d2hMemoryTime);
 	deleteGPUmem(fifo->in_d);
 	deleteGPUmem(fifo->out_d);
-	// printStatistics(statisticOfMatch, 256);
+	// printStatistics(statisticOfMatch, 128);
 	return (NULL);
 }
 
@@ -194,7 +194,7 @@ void *cpu_consumer (void *q)
 	int comp_length=0;
 	unsigned char * bckpbuf;
 	bckpbuf = (unsigned char *)malloc(sizeof(unsigned char)*blocksize);
-	unsigned int statisticOfMatch[256] = {0};
+	unsigned int statisticOfMatch[128] = {0};
     double cpuEncodeTime = 0;
 	
 	for (i = 0; i < maxiterations; i++) {

@@ -59,11 +59,11 @@
 #define FALSE   0
 #define TRUE    1
 
-#define WINDOW_SIZE 256
+#define WINDOW_SIZE 128
 
 /* maximum match length not encoded and encoded (4 bits) */
 #define MAX_UNCODED     2
-#define MAX_CODED       256
+#define MAX_CODED       128
 #define NWORKERS	1
 
 #define PCKTSIZE 4096
