@@ -222,7 +222,7 @@ int main (int argc, char* argv[])
 	}
 	
 
-	printf("file size:%d",totalsize);
+	// printf("file size:%d",totalsize);
 	//decide buf sizes
 	
 	if(totalsize < BUFSIZE)
@@ -238,7 +238,7 @@ int main (int argc, char* argv[])
 		padding = (padding)?(buffersize-padding):0;
 		blsize = buffersize;
 	}
-	printf(" eachblock_size:%d num_of_blocks:%d padding:%d \n",blsize,maxiters, padding);
+	// printf(" eachblock_size:%d num_of_blocks:%d padding:%d \n",blsize,maxiters, padding);
 	
 	bookkeeping = (unsigned int * )malloc(sizeof(int)*(maxiters+2)); //# of blocks, each block size, padding size 
 	bookkeeping[0] = maxiters;
@@ -269,9 +269,9 @@ int main (int argc, char* argv[])
 
 	gettimeofday(&tall_end,0);
 	alltime = (tall_end.tv_sec-tall_start.tv_sec) + (tall_end.tv_usec - tall_start.tv_usec)/1000000.0;
-	printf("\tAll the time took:\t%f \n", alltime);
+	// printf("\tAll the time took:\t%f \n", alltime);
 	int sizeinmb= totalsize / (1024*1024);
-	printf("\tThroughput for %d Bytes is :\t%lfMBps \n", totalsize, totalsize/(alltime*1024*1024));
+	// printf("\tThroughput for %d Bytes is :\t%lfMBps \n", totalsize, totalsize/(alltime*1024*1024));
 
 	free(bookkeeping);
 	//exit
