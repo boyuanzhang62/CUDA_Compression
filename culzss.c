@@ -105,7 +105,7 @@ void *gpu_consumer (void *q)
 	queue *fifo;
 	int i, d;
 	int success=0;
-	int interval = 2;
+	int interval = 1;
 	fifo = (queue *)q;
 	int comp_length=0;
 	gpuAllTime = 0;
