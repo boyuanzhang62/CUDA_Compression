@@ -110,7 +110,7 @@ void *gpu_consumer (void *q)
 	
 	for (i = 0; i < maxiterations; i++) {
 		success=compression_kernel_wrapper(fifo->encodedHostMemory + i * 2 * blocksize, blocksize, fifo->bufout[fifo->headGC], 
-										0, 0, 256, 0,fifo->headGC, fifo->in_d + i * blocksize * 2, fifo->out_d + i * blocksize * 2, interval, &matchingTime);
+										0, 0, 512, 0,fifo->headGC, fifo->in_d + i * blocksize * 2, fifo->out_d + i * blocksize * 2, interval, &matchingTime);
 		if(!success){
 			printf("Compression failed. Success %d\n",success);
 		}
