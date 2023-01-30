@@ -270,8 +270,8 @@ int main (int argc, char* argv[])
 	gettimeofday(&tall_end,0);
 	alltime = (tall_end.tv_sec-tall_start.tv_sec) + (tall_end.tv_usec - tall_start.tv_usec)/1000000.0;
 	printf("\tAll the time took:\t%f \n", alltime);
-	int sizeinmb= totalsize / (1024*1024);
-	printf("\tThroughput for %d runs of %dMB is :\t%lfMbps \n", maxiters,sizeinmb, (sizeinmb*8)/alltime);
+	float sizeingb= (float)totalsize / (1024*1024*1024);
+	printf("\tThroughput for %d runs of %fGB is :\t%lfGB/s \n", maxiters,sizeingb, sizeingb/alltime);
 
 	free(bookkeeping);
 	//exit
