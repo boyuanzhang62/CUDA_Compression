@@ -492,7 +492,7 @@ void *aftercomp (void *q)
 	while(i<(finish*2))
 	{
 		if (j>finish) { 
-			printf("compression took more, size is %d!!! \n",j); 
+			// printf("compression took more, size is %d!!! \n",j); 
 			data->comptookmore = 1;
 			break;
 		}
@@ -561,7 +561,12 @@ void *aftercomp (void *q)
 		}
 	}	
 	data->newlen = j - (data->tid)*((buf_length)/(data->numts)) ;
-	
+	if(data->comptookmore == 1){
+		printf("compressed size: %d\n", (buf_length) / (data->numts));
+	}
+	else{
+		printf("compressed size: %d\n", data->newlen);
+	}
 	return 0;
 }
 

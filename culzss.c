@@ -175,7 +175,7 @@ void *cpu_consumer (void *q)
 		memcpy (bckpbuf, fifo->buf[fifo->headCS], blocksize);
 		success=aftercompression_wrapper(fifo->buf[fifo->headCS], blocksize, fifo->bufout[fifo->headCS], &comp_length);
 		if(!success){
-			printf("After Compression failed. Success %d return size %d\n",success,comp_length);
+			// printf("After Compression failed. Success %d return size %d\n",success,comp_length);
 			fifo->outsize[fifo->headCS] = 0;
 			memcpy (fifo->buf[fifo->headCS],bckpbuf,  blocksize);
 		}	
