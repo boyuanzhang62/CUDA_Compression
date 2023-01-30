@@ -1,5 +1,5 @@
 main: main.c culzss  gpu_compress deculzss  gpu_decompress decompression
-	gcc -lstdc++ -g -L /opt/apps/cuda/11.0.3/gcc/6.1.0/lib64 -lcudart -lpthread -o main main.c culzss.o gpu_compress.o deculzss.o gpu_decompress.o decompression.o
+	gcc -g -L /home/bozhan/spack/opt/spack/linux-ubuntu20.04-cascadelake/gcc-9.4.0/cuda-11.5.2-meeyegidjwrzmhaibue4y6dioc4ungnj/lib64 -o main main.c culzss.o gpu_compress.o deculzss.o gpu_decompress.o decompression.o -lcudart -lpthread -lstdc++
 
 decompression: 	decompression.c decompression.h
 	gcc -lstdc++ -g  -c -lpthread -o decompression.o decompression.c
